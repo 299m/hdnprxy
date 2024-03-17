@@ -4,7 +4,6 @@ import (
 	"hdnprxy/relay"
 	"hdnprxy/util"
 	"log"
-	"net"
 )
 
 type Config struct {
@@ -12,42 +11,42 @@ type Config struct {
 }
 
 type Engine struct {
-	relayer *relay.Client
-	conn    net.Conn
+	north relay.Relay
+	south relay.Relay
 
 	cfg *Config
 }
 
-func NewEngine(relayer *relay.Client, conn net.Conn, cfg *Config) *Engine {
+func NewEngine(north relay.Relay, south relay.Relay, cfg *Config) *Engine {
 	return &Engine{
-		relayer: relayer,
-		conn:    conn,
-		cfg:     cfg,
+		north: north,
+		south: south,
+		cfg:   cfg,
 	}
 }
 
 func (p *Engine) ProcessNorthbound() {
-	defer p.relayer.Close()
-	defer p.conn.Close()
+	defer p.north.Close()
+	defer p.south.Close()
 
 	for {
-		message, err := p.relayer.RecvMsg()
+		message, err := p.south.RecvMsg()
 		if err != nil {
 			log.Println(err)
 			return
 		}
-		p.conn.Write(message)
+		p.north.SendMsg(message)
 	}
 }
 
 func (p *Engine) ProcessSouthbound() {
-	defer p.relayer.Close()
-	defer p.conn.Close()
-	buffer := make([]byte, p.cfg.Buffersize)
+	defer p.north.Close()
+	defer p.south.Close()
 
 	for {
-		n, err := p.conn.Read(buffer)
+		buffer, err := p.north.RecvMsg()
 		util.CheckError(err)
-		p.relayer.SendMsg(buffer[:n])
+		err = p.south.SendMsg(buffer)
+		util.CheckError(err)
 	}
 }

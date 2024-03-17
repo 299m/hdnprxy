@@ -10,12 +10,24 @@ type Client struct {
 	url     string
 	timeout time.Duration
 	conn    *net.Conn
+
+	southbuffer []byte
 }
 
 func NewClient(url string, timeout time.Duration) *Client {
 	return &Client{
-		url:     url,
-		timeout: timeout,
+		url:         url,
+		timeout:     timeout,
+		southbuffer: make([]byte, 1024),
+	}
+}
+
+// / Create a new client from an existing connection
+func NewClientFromConn(conn *net.Conn, timeout time.Duration) *Client {
+	return &Client{
+		conn:        conn,
+		timeout:     timeout,
+		southbuffer: make([]byte, 1024),
 	}
 }
 
@@ -38,6 +50,7 @@ func (p *Client) SendMsg(data []byte) error {
 
 func (p *Client) RecvMsg() (data []byte, err error) {
 	(*p.conn).SetReadDeadline(time.Now().Add(p.timeout))
-	_, err = (*p.conn).Read(data)
-	return data, err
+	data = p.southbuffer
+	n, err := (*p.conn).Read(data)
+	return data[:n], err
 }

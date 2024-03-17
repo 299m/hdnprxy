@@ -1,12 +1,14 @@
 package service
 
 import (
-	"bufio"
+	"errors"
 	"github.com/gorilla/websocket"
+	"hdnprxy/configs"
 	"hdnprxy/proxy"
 	relay2 "hdnprxy/relay"
 	"hdnprxy/util"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -37,7 +39,7 @@ type Content struct {
 // Key - if key is 123 and we see /123/ then we will proxy the request to the proxyendpoint
 type ProxyContent struct {
 	Proxyendpoint string
-	Type          string // currently "ws" or "net", may try to support http in the future
+	Type          string // currently "ws", "net", "n-ws" (websock north), "s-ws" (websock south), may try to support http in the future
 }
 
 type General struct {
@@ -88,6 +90,25 @@ func NewService(cfgpath string) *Service {
 	return svc
 }
 
+func (p *Service) hijack(w http.ResponseWriter) (net.Conn, error) {
+	h, ok := w.(http.Hijacker)
+	if !ok {
+		return nil, errors.New("Hijacking not supported")
+	}
+	conn, brw, err := h.Hijack()
+	if err != nil {
+		return nil, err
+	}
+	if brw.Reader.Buffered() > 0 {
+		if err := conn.Close(); err != nil {
+			log.Printf("websocket: failed to close network connection: %v", err)
+		}
+		return nil, errors.New("Client sent data before handshake is complete")
+	}
+	return conn, nil
+}
+
+// / Raw tcp proxy - north and south
 func (p *Service) HandleNetProxy(w http.ResponseWriter, req *http.Request, proxycfg *ProxyContent) {
 	relay := relay2.NewClient(proxycfg.Proxyendpoint, p.timeout)
 	err := relay.Connect()
@@ -97,33 +118,69 @@ func (p *Service) HandleNetProxy(w http.ResponseWriter, req *http.Request, proxy
 		return
 	}
 	//defer relay.Close()
-	h, ok := w.(http.Hijacker)
-	if !ok {
-		log.Println("Hijacking not supported")
-		http.Error(w, "Server error", 500)
-		return
-	}
-	var brw *bufio.ReadWriter
-	conn, brw, err := h.Hijack()
+	conn, err := p.hijack(w)
+	south := relay2.NewClientFromConn(&conn, p.timeout)
+	processor := proxy.NewEngine(relay, south, &proxy.Config{Buffersize: p.buffersize})
+	go processor.ProcessNorthbound()
+	go processor.ProcessSouthbound()
+}
+
+// / Raw websocket proxy - north and south
+func (p *Service) HandleWsProxy(w http.ResponseWriter, req *http.Request, proxycfg *ProxyContent) {
+	north := relay2.NewWebSockRelay(proxycfg.Proxyendpoint, p.timeout)
+	err := north.Connect()
 	if err != nil {
-		log.Println("Hijack failed ", err)
+		log.Println("Unable to connect ", err)
 		http.Error(w, "Server error", 500)
 		return
 	}
-	if brw.Reader.Buffered() > 0 {
-		if err := conn.Close(); err != nil {
-			log.Printf("websocket: failed to close network connection: %v", err)
-		}
-		log.Println("Client sent data before handshake is complete")
-		http.Error(w, "Server error", 500)
+	//defer relay.Close()
+	conn, err := upgrader.Upgrade(w, req, nil)
+	if err != nil {
+		log.Println(err)
+		return
 	}
-	processor := proxy.NewEngine(relay, conn, &proxy.Config{Buffersize: p.buffersize})
+	south := relay2.NewWebSockRelayFromConn(conn, p.timeout)
+	processor := proxy.NewEngine(north, south, &proxy.Config{Buffersize: p.buffersize})
+	go processor.ProcessNorthbound()
+	go processor.ProcessSouthbound()
+}
+
+// Websocket to the north - raw tcp to the south
+func (p *Service) HandleNetWSProxy(w http.ResponseWriter, req *http.Request, proxycfg *ProxyContent) {
+	north := relay2.NewWebSockRelay(proxycfg.Proxyendpoint, p.timeout)
+	err := north.Connect()
+	if err != nil {
+		log.Println("Unable to connect ", err)
+		http.Error(w, "Server error", 500)
+		return
+
+	}
+	//defer relay.Close()
+	conn, err := p.hijack(w)
+	util.CheckError(err)
+	south := relay2.NewClientFromConn(&conn, p.timeout)
+	processor := proxy.NewEngine(north, south, &proxy.Config{Buffersize: p.buffersize})
+	go processor.ProcessNorthbound()
+	go processor.ProcessSouthbound()
+}
+
+// Raw tcp to the north - websocket to the south
+func (p *Service) HandleWSNetProxy(w http.ResponseWriter, req *http.Request, proxycfg *ProxyContent) {
+	conn, err := upgrader.Upgrade(w, req, nil)
+	util.CheckError(err)
+	north := relay2.NewClient(proxycfg.Proxyendpoint, p.timeout)
+	err = north.Connect()
+	util.CheckError(err)
+	south := relay2.NewWebSockRelayFromConn(conn, p.timeout)
+	processor := proxy.NewEngine(north, south, &proxy.Config{Buffersize: p.buffersize})
 	go processor.ProcessNorthbound()
 	go processor.ProcessSouthbound()
 }
 
 // Create a http handler function for all proxy keys
 func (p *Service) HandleProxy(res http.ResponseWriter, req *http.Request) {
+	defer util.OnPanic(res)
 	///read the proxy param and see if it matches any of the keys
 	proxykey := req.URL.Query().Get(p.proxyparam)
 
@@ -135,10 +192,20 @@ func (p *Service) HandleProxy(res http.ResponseWriter, req *http.Request) {
 	switch proxy.Type {
 	case "net":
 		p.HandleNetProxy(res, req, proxy)
+	case "ws":
+		p.HandleWsProxy(res, req, proxy)
+	case "n-ws":
+		p.HandleNetWSProxy(res, req, proxy)
+	case "s-ws":
+		p.HandleWSNetProxy(res, req, proxy)
+	default:
+		log.Println("Invalid proxy type", proxy.Type)
+		http.Error(res, "Server error", 500)
 	}
 }
 
 func (p *Service) HandleHtml(res http.ResponseWriter, req *http.Request) {
+	defer util.OnPanic(res)
 	resppath := req.URL.Path[len("/"):]
 	if resppath == "" {
 		p.HandleHome(res, req)
@@ -165,6 +232,7 @@ func (p *Service) HandleHtml(res http.ResponseWriter, req *http.Request) {
 
 // / Create a http handler function for the /home endpoint
 func (p *Service) HandleHome(res http.ResponseWriter, req *http.Request) {
+	defer util.OnPanic(res)
 	stats, err := os.Stat(p.content.Homefile)
 	util.CheckError(err)
 	f, err := os.Open(p.content.Homefile)
@@ -174,21 +242,10 @@ func (p *Service) HandleHome(res http.ResponseWriter, req *http.Request) {
 	http.ServeContent(res, req, "home", stats.ModTime(), f)
 }
 
-type TlsConfig struct {
-	Cert string
-	Key  string
-	Port string
-}
-
-func (t *TlsConfig) Expand() {
-	t.Cert = os.ExpandEnv(t.Cert)
-	t.Key = os.ExpandEnv(t.Key)
-}
-
 func ListenAndServeTls(cfgpath string) {
 	// Read the config file
 	NewService(cfgpath)
-	servercfg := &TlsConfig{}
+	servercfg := &configs.TlsConfig{}
 	tlsconfig := map[string]util.Expandable{
 		"tls": servercfg,
 	}
