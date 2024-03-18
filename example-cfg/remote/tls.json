@@ -1,5 +1,6 @@
 {
   "Cert": "$REMOTE_CERT",
   "Key":  "$REMOTE_KEY",
-  "Port": "90443"
+  "Port": "90443",
+  "IsHttps": true
 }

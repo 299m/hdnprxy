@@ -1,5 +1,6 @@
 {
   "Cert": "$LOCAL_CERT",
   "Key":  "$LOCAL_KEY",
-  "Port": "90443"
+  "Port": "20443",
+  "IsProxy": true
 }

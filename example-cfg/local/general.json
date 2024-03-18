@@ -2,5 +2,5 @@
   "ProxyParam": "route",
   "ProxyRoute": "xx123",
   "Timeout": "30s",
-  "ProxyBufferSizes": 2014
+  "AllowedCACerts": ["./certs/ca-cert.pem"]
 }

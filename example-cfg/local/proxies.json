@@ -3,6 +3,9 @@
     "ab": {
       "Proxyendpoint": "http://localhost:90443",
       "Type": "s-ws"
+    },"tunnel": {
+      "Proxyendpoint": "localhost:90443",
+      "Type": "net"
     }
   }
 }

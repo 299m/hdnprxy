@@ -48,9 +48,13 @@ type General struct {
 	ProxyRoute       string
 	Timeout          string
 	ProxyBufferSizes int
+	AllowedCACerts   []string
 }
 
 func (g *General) Expand() {
+	for i, cert := range g.AllowedCACerts {
+		g.AllowedCACerts[i] = os.ExpandEnv(cert)
+	}
 }
 
 type Proxies struct {
@@ -245,15 +249,57 @@ func (p *Service) HandleHome(res http.ResponseWriter, req *http.Request) {
 	http.ServeContent(res, req, "home", stats.ModTime(), f)
 }
 
+func (p *Service) HandleTunnel(conn net.Conn, proxycontent *ProxyContent) {
+	// / Create a new client from the connection
+	south := relay2.NewClientFromConn(conn.(*tls.Conn), p.timeout)
+
+	north := relay2.NewClient(proxycontent.Proxyendpoint, p.timeout)
+	err := north.Connect()
+	util.CheckError(err)
+	processor := proxy.NewEngine(north, south, &proxy.Config{Buffersize: p.buffersize})
+	go processor.ProcessNorthbound()
+	go processor.ProcessSouthbound()
+
+}
+
+func ProxyListenAndServe(servercfg *configs.TlsConfig, svc *Service) {
+
+	/// Start a tls listener
+	/// Load the server certs
+	cer, err := tls.LoadX509KeyPair(servercfg.Cert, servercfg.Key)
+	util.CheckError(err)
+	tlsconfig := &tls.Config{
+		Certificates: []tls.Certificate{cer},
+	}
+
+	listener, err := tls.Listen("tcp", ":"+servercfg.Port, tlsconfig)
+	util.CheckError(err)
+	for {
+		conn, err := listener.Accept()
+		util.CheckError(err)
+		svc.HandleTunnel(conn, svc.proxies.Proxies["tunnel"]) /// this should return after setting up the tunnel
+	}
+
+}
+
+func ListenAndServeHttps(servercfg *configs.TlsConfig) {
+	// Start the server
+	err := http.ListenAndServeTLS(":"+servercfg.Port, servercfg.Cert, servercfg.Key, nil)
+
+	util.CheckError(err)
+}
+
 func ListenAndServeTls(cfgpath string) {
-	// Read the config file
-	NewService(cfgpath)
+	svc := NewService(cfgpath)
 	servercfg := &configs.TlsConfig{}
 	tlsconfig := map[string]util.Expandable{
 		"tls": servercfg,
 	}
 	util.ReadConfig(cfgpath, tlsconfig)
-	// Start the server
-	err := http.ListenAndServeTLS(servercfg.Port, servercfg.Cert, servercfg.Key, nil)
-	util.CheckError(err)
+
+	if tlsconfig["tls"].(*configs.TlsConfig).IsProxy {
+		ProxyListenAndServe(servercfg, svc)
+	} else {
+		ListenAndServeHttps(servercfg)
+	}
 }

@@ -1,11 +1,15 @@
 package relay
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"hdnprxy/util"
 	"log"
+	"net/http"
+	"net/url"
 	"os"
 	"time"
 )
@@ -17,6 +21,9 @@ type Client struct {
 
 	southbuffer   []byte
 	trustedcacert string
+
+	paramname  string
+	paramvalue string
 }
 
 func NewClient(url string, timeout time.Duration) *Client {
@@ -24,6 +31,17 @@ func NewClient(url string, timeout time.Duration) *Client {
 		url:         url,
 		timeout:     timeout,
 		southbuffer: make([]byte, 1024),
+	}
+}
+
+// / if we are setting up a tunnel from a local proxy server ot a remote proxy, use this
+func NewTunnelClient(url string, timeout time.Duration, paramname string, paramvalue string) *Client {
+	return &Client{
+		url:         url,
+		timeout:     timeout,
+		southbuffer: make([]byte, 1024),
+		paramname:   paramname,
+		paramvalue:  paramvalue,
 	}
 }
 
@@ -54,10 +72,21 @@ func (p *Client) Connect() error {
 		}
 		config.RootCAs.AppendCertsFromPEM(block.Bytes)
 	}
-
-	conn, err := tls.Dial("tcp", p.url, config)
+	fullurl, err := url.Parse(p.url)
+	util.CheckError(err)
+	conn, err := tls.Dial("tcp", fullurl.Host, config)
 	util.CheckError(err)
 	p.conn = conn
+	if p.paramname != "" {
+		data, err := json.Marshal(map[string]string{p.paramname: p.paramvalue})
+		util.CheckError(err)
+		buf := &bytes.Buffer{}
+		buf.Write(data)
+		req, err := http.NewRequest(http.MethodPost, p.url, buf)
+		/// This should trigger the tunnel setup - after that we should be on a tls/tcp protocol
+		err = req.Write(p.conn)
+		util.CheckError(err)
+	}
 	return nil
 }
 
