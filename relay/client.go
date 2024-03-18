@@ -1,17 +1,22 @@
 package relay
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 	"hdnprxy/util"
-	"net"
+	"log"
+	"os"
 	"time"
 )
 
 type Client struct {
 	url     string
 	timeout time.Duration
-	conn    *net.Conn
+	conn    *tls.Conn
 
-	southbuffer []byte
+	southbuffer   []byte
+	trustedcacert string
 }
 
 func NewClient(url string, timeout time.Duration) *Client {
@@ -23,7 +28,7 @@ func NewClient(url string, timeout time.Duration) *Client {
 }
 
 // / Create a new client from an existing connection
-func NewClientFromConn(conn *net.Conn, timeout time.Duration) *Client {
+func NewClientFromConn(conn *tls.Conn, timeout time.Duration) *Client {
 	return &Client{
 		conn:        conn,
 		timeout:     timeout,
@@ -31,10 +36,28 @@ func NewClientFromConn(conn *net.Conn, timeout time.Duration) *Client {
 	}
 }
 
+func (p *Client) AllowCert(cert string) {
+	p.trustedcacert = cert
+}
+
 func (p *Client) Connect() error {
-	conn, err := net.Dial("tcp", p.url)
+	config := &tls.Config{}
+	if p.trustedcacert != "" {
+		if config.RootCAs == nil {
+			config.RootCAs = x509.NewCertPool()
+		}
+		caCert, err := os.ReadFile(p.trustedcacert)
+		util.CheckError(err)
+		block, _ := pem.Decode(caCert)
+		if block == nil {
+			log.Panicln("Failed to decode parent certificate")
+		}
+		config.RootCAs.AppendCertsFromPEM(block.Bytes)
+	}
+
+	conn, err := tls.Dial("tcp", p.url, config)
 	util.CheckError(err)
-	p.conn = &conn
+	p.conn = conn
 	return nil
 }
 

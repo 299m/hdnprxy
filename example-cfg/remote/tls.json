@@ -1,0 +1,5 @@
+{
+  "Cert": "$REMOTE_CERT",
+  "Key":  "$REMOTE_KEY",
+  "Port": "90443"
+}

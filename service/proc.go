@@ -1,6 +1,7 @@
 package service
 
 import (
+	"crypto/tls"
 	"errors"
 	"github.com/gorilla/websocket"
 	"hdnprxy/configs"
@@ -119,7 +120,8 @@ func (p *Service) HandleNetProxy(w http.ResponseWriter, req *http.Request, proxy
 	}
 	//defer relay.Close()
 	conn, err := p.hijack(w)
-	south := relay2.NewClientFromConn(&conn, p.timeout)
+	//// Only accept secure connections - make sure this is a tls connection
+	south := relay2.NewClientFromConn(conn.(*tls.Conn), p.timeout)
 	processor := proxy.NewEngine(relay, south, &proxy.Config{Buffersize: p.buffersize})
 	go processor.ProcessNorthbound()
 	go processor.ProcessSouthbound()
@@ -159,7 +161,8 @@ func (p *Service) HandleNetWSProxy(w http.ResponseWriter, req *http.Request, pro
 	//defer relay.Close()
 	conn, err := p.hijack(w)
 	util.CheckError(err)
-	south := relay2.NewClientFromConn(&conn, p.timeout)
+	// Only accept secure connections - make sure this is a tls connection
+	south := relay2.NewClientFromConn(conn.(*tls.Conn), p.timeout)
 	processor := proxy.NewEngine(north, south, &proxy.Config{Buffersize: p.buffersize})
 	go processor.ProcessNorthbound()
 	go processor.ProcessSouthbound()

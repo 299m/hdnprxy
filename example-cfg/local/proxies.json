@@ -1,0 +1,8 @@
+{
+  "Proxies": {
+    "ab": {
+      "Proxyendpoint": "http://localhost:90443",
+      "Type": "s-ws"
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "Proxies": {
+    "ab": {
+      "Proxyendpoint": "https://bbc.com",
+      "Type": "n-ws"
+    }
+  }
+}

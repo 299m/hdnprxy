@@ -1,0 +1,6 @@
+{
+  "ProxyParam": "route",
+  "ProxyRoute": "xx123",
+  "Timeout": "30s",
+  "ProxyBufferSizes": 2014
+}
