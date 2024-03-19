@@ -1,10 +1,10 @@
 {
   "Proxies": {
     "ab": {
-      "Proxyendpoint": "http://localhost:90443",
+      "Proxyendpoint": "http://localhost:40443/aa912",
       "Type": "s-ws"
     },"tunnel": {
-      "Proxyendpoint": "localhost:90443",
+      "Proxyendpoint": "tls://127.0.0.1:40443/aa912",
       "Type": "net"
     }
   }

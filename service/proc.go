@@ -3,6 +3,7 @@ package service
 import (
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"github.com/gorilla/websocket"
 	"hdnprxy/configs"
 	"hdnprxy/proxy"
@@ -30,11 +31,18 @@ type Service struct {
 	proxyroute string
 	timeout    time.Duration
 	buffersize int
+
+	allowedcacerts []string /// If we are using our own ca cert. This can be useful if we don't trust the ceritifcate store of our system
 }
 
 type Content struct {
 	Homefile string
 	Basedir  string
+}
+
+func (c *Content) Expand() {
+	c.Basedir = os.ExpandEnv(c.Basedir)
+	c.Homefile = os.ExpandEnv(c.Homefile)
 }
 
 // Key - if key is 123 and we see /123/ then we will proxy the request to the proxyendpoint
@@ -64,9 +72,13 @@ type Proxies struct {
 func (p *Proxies) Expand() {
 }
 
-func (c *Content) Expand() {
-	c.Basedir = os.ExpandEnv(c.Basedir)
-	c.Homefile = os.ExpandEnv(c.Homefile)
+type Tunnel struct {
+	Paramname string //// These are the triggers to start the tunnel on the remote side
+	Paramval  string
+}
+
+func (t *Tunnel) Expand() {
+	t.Paramval = os.ExpandEnv(t.Paramval)
 }
 
 func NewService(cfgpath string) *Service {
@@ -81,12 +93,13 @@ func NewService(cfgpath string) *Service {
 	util.CheckError(err)
 
 	svc := &Service{
-		content:    configs["content"].(*Content),
-		proxies:    configs["proxies"].(*Proxies),
-		proxyparam: configs["general"].(*General).ProxyParam, // e.g. name
-		proxyroute: configs["general"].(*General).ProxyRoute, // e.g. /proxy
-		timeout:    timeout,
-		buffersize: configs["general"].(*General).ProxyBufferSizes,
+		content:        configs["content"].(*Content),
+		proxies:        configs["proxies"].(*Proxies),
+		proxyparam:     configs["general"].(*General).ProxyParam, // e.g. name
+		proxyroute:     configs["general"].(*General).ProxyRoute, // e.g. /proxy
+		timeout:        timeout,
+		buffersize:     configs["general"].(*General).ProxyBufferSizes,
+		allowedcacerts: configs["general"].(*General).AllowedCACerts,
 	}
 	http.HandleFunc("/", svc.HandleHtml)
 	http.HandleFunc("/home", svc.HandleHome)
@@ -96,6 +109,7 @@ func NewService(cfgpath string) *Service {
 }
 
 func (p *Service) hijack(w http.ResponseWriter) (net.Conn, error) {
+	fmt.Println("Hijacking the http connection")
 	h, ok := w.(http.Hijacker)
 	if !ok {
 		return nil, errors.New("Hijacking not supported")
@@ -115,8 +129,10 @@ func (p *Service) hijack(w http.ResponseWriter) (net.Conn, error) {
 
 // / Raw tcp proxy - north and south
 func (p *Service) HandleNetProxy(w http.ResponseWriter, req *http.Request, proxycfg *ProxyContent) {
-	relay := relay2.NewClient(proxycfg.Proxyendpoint, p.timeout)
-	err := relay.Connect()
+	fmt.Println("Handling net proxy")
+	north := relay2.NewClient(proxycfg.Proxyendpoint, p.timeout)
+	north.AllowCert(p.allowedcacerts)
+	err := north.Connect()
 	if err != nil {
 		log.Println("Unable to ocnnect ", err)
 		http.Error(w, "Server error", 500)
@@ -126,13 +142,14 @@ func (p *Service) HandleNetProxy(w http.ResponseWriter, req *http.Request, proxy
 	conn, err := p.hijack(w)
 	//// Only accept secure connections - make sure this is a tls connection
 	south := relay2.NewClientFromConn(conn.(*tls.Conn), p.timeout)
-	processor := proxy.NewEngine(relay, south, &proxy.Config{Buffersize: p.buffersize})
+	processor := proxy.NewEngine(north, south, &proxy.Config{Buffersize: p.buffersize})
 	go processor.ProcessNorthbound()
 	go processor.ProcessSouthbound()
 }
 
 // / Raw websocket proxy - north and south
 func (p *Service) HandleWsProxy(w http.ResponseWriter, req *http.Request, proxycfg *ProxyContent) {
+	fmt.Println("Handling ws proxy")
 	north := relay2.NewWebSockRelay(proxycfg.Proxyendpoint, p.timeout)
 	err := north.Connect()
 	if err != nil {
@@ -154,6 +171,7 @@ func (p *Service) HandleWsProxy(w http.ResponseWriter, req *http.Request, proxyc
 
 // Websocket to the north - raw tcp to the south
 func (p *Service) HandleNetWSProxy(w http.ResponseWriter, req *http.Request, proxycfg *ProxyContent) {
+	fmt.Println("Handling net ws proxy")
 	north := relay2.NewWebSockRelay(proxycfg.Proxyendpoint, p.timeout)
 	err := north.Connect()
 	if err != nil {
@@ -174,9 +192,11 @@ func (p *Service) HandleNetWSProxy(w http.ResponseWriter, req *http.Request, pro
 
 // Raw tcp to the north - websocket to the south
 func (p *Service) HandleWSNetProxy(w http.ResponseWriter, req *http.Request, proxycfg *ProxyContent) {
+	fmt.Println("Handling ws net proxy")
 	conn, err := upgrader.Upgrade(w, req, nil)
 	util.CheckError(err)
 	north := relay2.NewClient(proxycfg.Proxyendpoint, p.timeout)
+	north.AllowCert(p.allowedcacerts)
 	err = north.Connect()
 	util.CheckError(err)
 	south := relay2.NewWebSockRelayFromConn(conn, p.timeout)
@@ -188,6 +208,7 @@ func (p *Service) HandleWSNetProxy(w http.ResponseWriter, req *http.Request, pro
 // Create a http handler function for all proxy keys
 func (p *Service) HandleProxy(res http.ResponseWriter, req *http.Request) {
 	defer util.OnPanic(res)
+	fmt.Println("Http handle proxy")
 	///read the proxy param and see if it matches any of the keys
 	proxykey := req.URL.Query().Get(p.proxyparam)
 
@@ -249,20 +270,22 @@ func (p *Service) HandleHome(res http.ResponseWriter, req *http.Request) {
 	http.ServeContent(res, req, "home", stats.ModTime(), f)
 }
 
-func (p *Service) HandleTunnel(conn net.Conn, proxycontent *ProxyContent) {
+func (p *Service) HandleTunnel(conn net.Conn, proxycontent *ProxyContent, tunnel *Tunnel) {
 	// / Create a new client from the connection
+	fmt.Println("Handling tunnel")
 	south := relay2.NewClientFromConn(conn.(*tls.Conn), p.timeout)
 
-	north := relay2.NewClient(proxycontent.Proxyendpoint, p.timeout)
+	north := relay2.NewTunnelClient(proxycontent.Proxyendpoint, p.timeout, tunnel.Paramname, tunnel.Paramval)
+	north.AllowCert(p.allowedcacerts)
 	err := north.Connect()
 	util.CheckError(err)
 	processor := proxy.NewEngine(north, south, &proxy.Config{Buffersize: p.buffersize})
 	go processor.ProcessNorthbound()
 	go processor.ProcessSouthbound()
-
+	fmt.Println("Tunnel setup complete")
 }
 
-func ProxyListenAndServe(servercfg *configs.TlsConfig, svc *Service) {
+func ProxyListenAndServe(servercfg *configs.TlsConfig, svc *Service, tunnel *Tunnel) {
 
 	/// Start a tls listener
 	/// Load the server certs
@@ -272,18 +295,20 @@ func ProxyListenAndServe(servercfg *configs.TlsConfig, svc *Service) {
 		Certificates: []tls.Certificate{cer},
 	}
 
+	fmt.Println("Starting tunnel server on port", servercfg.Port)
 	listener, err := tls.Listen("tcp", ":"+servercfg.Port, tlsconfig)
 	util.CheckError(err)
 	for {
 		conn, err := listener.Accept()
 		util.CheckError(err)
-		svc.HandleTunnel(conn, svc.proxies.Proxies["tunnel"]) /// this should return after setting up the tunnel
+		svc.HandleTunnel(conn, svc.proxies.Proxies["tunnel"], tunnel) /// this should return after setting up the tunnel
 	}
 
 }
 
 func ListenAndServeHttps(servercfg *configs.TlsConfig) {
 	// Start the server
+	fmt.Println("Starting server on port", servercfg.Port)
 	err := http.ListenAndServeTLS(":"+servercfg.Port, servercfg.Cert, servercfg.Key, nil)
 
 	util.CheckError(err)
@@ -292,14 +317,18 @@ func ListenAndServeHttps(servercfg *configs.TlsConfig) {
 func ListenAndServeTls(cfgpath string) {
 	svc := NewService(cfgpath)
 	servercfg := &configs.TlsConfig{}
+	tunnel := &Tunnel{}
 	tlsconfig := map[string]util.Expandable{
-		"tls": servercfg,
+		"tls":    servercfg,
+		"tunnel": tunnel,
 	}
 	util.ReadConfig(cfgpath, tlsconfig)
 
 	if tlsconfig["tls"].(*configs.TlsConfig).IsProxy {
-		ProxyListenAndServe(servercfg, svc)
-	} else {
+		ProxyListenAndServe(servercfg, svc, tunnel)
+	} else if tlsconfig["tls"].(*configs.TlsConfig).IsHttps {
 		ListenAndServeHttps(servercfg)
+	} else {
+		log.Panicln("Invalid tls config, one of IsProxy or IsHttps must be set")
 	}
 }

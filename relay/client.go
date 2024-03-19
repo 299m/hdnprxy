@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
-	"encoding/pem"
+	"fmt"
 	"hdnprxy/util"
 	"log"
 	"net/http"
@@ -20,7 +20,7 @@ type Client struct {
 	conn    *tls.Conn
 
 	southbuffer   []byte
-	trustedcacert string
+	trustedcacert []string
 
 	paramname  string
 	paramvalue string
@@ -36,6 +36,7 @@ func NewClient(url string, timeout time.Duration) *Client {
 
 // / if we are setting up a tunnel from a local proxy server ot a remote proxy, use this
 func NewTunnelClient(url string, timeout time.Duration, paramname string, paramvalue string) *Client {
+	fmt.Println("Creating tunnel client with url ", url)
 	return &Client{
 		url:         url,
 		timeout:     timeout,
@@ -54,27 +55,34 @@ func NewClientFromConn(conn *tls.Conn, timeout time.Duration) *Client {
 	}
 }
 
-func (p *Client) AllowCert(cert string) {
+func (p *Client) AllowCert(cert []string) {
 	p.trustedcacert = cert
 }
 
 func (p *Client) Connect() error {
 	config := &tls.Config{}
-	if p.trustedcacert != "" {
-		if config.RootCAs == nil {
-			config.RootCAs = x509.NewCertPool()
-		}
-		caCert, err := os.ReadFile(p.trustedcacert)
-		util.CheckError(err)
-		block, _ := pem.Decode(caCert)
-		if block == nil {
-			log.Panicln("Failed to decode parent certificate")
-		}
-		config.RootCAs.AppendCertsFromPEM(block.Bytes)
+	// Get the SystemCertPool, continue with an empty pool on error
+	rootCAs, _ := x509.SystemCertPool()
+	if rootCAs == nil {
+		rootCAs = x509.NewCertPool()
 	}
+	for _, certfile := range p.trustedcacert {
+		fmt.Println("Adding trusted certfile ", certfile)
+
+		// Read in the certfile file
+		certs, err := os.ReadFile(certfile)
+		util.CheckError(err)
+		// Append our certfile to the system pool
+		if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
+			log.Println("No certs appended, using system certs only")
+		}
+	}
+	config.RootCAs = rootCAs
+
 	fullurl, err := url.Parse(p.url)
 	util.CheckError(err)
-	conn, err := tls.Dial("tcp", fullurl.Host, config)
+	fmt.Println("Fullurl ", fullurl.Hostname())
+	conn, err := tls.Dial("tcp", fullurl.Hostname()+":"+fullurl.Port(), config)
 	util.CheckError(err)
 	p.conn = conn
 	if p.paramname != "" {
