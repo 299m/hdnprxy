@@ -1,7 +1,6 @@
 package service
 
 import (
-	"bufio"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -345,6 +344,7 @@ func ProxyListenAndServe(servercfg *configs.TlsConfig, svc *Service, tunnel *Tun
 
 }
 
+/* OBSOLETE - pass to the proxy
 func sendResponse(conn net.Conn, status string, statuscode int) {
 	resp := http.Response{
 		Status:        status,
@@ -386,6 +386,8 @@ func HandleConnect(conn net.Conn) {
 
 }
 
+*/
+
 func ProxyListenAndServeTcpTls(servercfg *configs.TlsConfig, svc *Service, tunnel *Tunnel, upgradetotls bool) {
 
 	/// Start a tls listener
@@ -402,7 +404,7 @@ func ProxyListenAndServeTcpTls(servercfg *configs.TlsConfig, svc *Service, tunne
 	for {
 		conn, err := listener.Accept()
 		util.CheckError(err)
-		HandleConnect(conn)
+		//HandleConnect(conn)
 		if upgradetotls {
 			conn = tls.Server(conn, tlsconfig)
 		}
