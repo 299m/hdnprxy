@@ -1,3 +1,7 @@
+github.com/299m/util v0.0.0-20240319111501-7a5cbc8723f8 h1:rC2+gCjjF8/Y+wPREVmBduyDn3/ht8j5SZlzyH7strk=
+github.com/299m/util v0.0.0-20240319111501-7a5cbc8723f8/go.mod h1:c2ygI4rNB2QiYvAZDcQuYRJ/DkE0qY7U8tkkjL7NLek=
+github.com/299m/util v0.0.0-20240319150824-05e445448568 h1:iTbSbw2i1Ubq9SPN73GQ69d82A2o8tnVq+JzE+kG99Y=
+github.com/299m/util v0.0.0-20240319150824-05e445448568/go.mod h1:c2ygI4rNB2QiYvAZDcQuYRJ/DkE0qY7U8tkkjL7NLek=
 github.com/gorilla/websocket v1.5.1 h1:gmztn0JnHVt9JZquRuzLw3g4wouNVzKL15iLr/zn/QY=
 github.com/gorilla/websocket v1.5.1/go.mod h1:x3kM2JMyaluk02fnUJpQuwD2dCS5NDG2ZHL0uE0tcaY=
 golang.org/x/net v0.17.0 h1:pVaXccu2ozPjCXewfr1S7xza/zcXTity9cCdXQYSjIM=

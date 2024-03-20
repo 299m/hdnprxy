@@ -6,7 +6,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"hdnprxy/util"
+	"github.com/299m/util/util"
 	"log"
 	"net/http"
 	"net/url"
@@ -24,6 +24,8 @@ type Client struct {
 
 	paramname  string
 	paramvalue string
+
+	debuglogs DebugLog
 }
 
 func NewClient(url string, timeout time.Duration) *Client {
@@ -59,6 +61,10 @@ func (p *Client) AllowCert(cert []string) {
 	p.trustedcacert = cert
 }
 
+func (p *Client) EnableDebugLogs(on bool) {
+	p.debuglogs.EnableDebugLogs(on)
+}
+
 func (p *Client) Connect() error {
 	config := &tls.Config{}
 	// Get the SystemCertPool, continue with an empty pool on error
@@ -67,7 +73,7 @@ func (p *Client) Connect() error {
 		rootCAs = x509.NewCertPool()
 	}
 	for _, certfile := range p.trustedcacert {
-		fmt.Println("Adding trusted certfile ", certfile)
+		p.debuglogs.LogDebug("Adding trusted certfile ", certfile)
 
 		// Read in the certfile file
 		certs, err := os.ReadFile(certfile)
@@ -81,7 +87,7 @@ func (p *Client) Connect() error {
 
 	fullurl, err := url.Parse(p.url)
 	util.CheckError(err)
-	fmt.Println("Fullurl ", fullurl.Hostname())
+	p.debuglogs.LogDebug("Fullurl ", fullurl.Hostname())
 	conn, err := tls.Dial("tcp", fullurl.Hostname()+":"+fullurl.Port(), config)
 	util.CheckError(err)
 	p.conn = conn
@@ -103,6 +109,7 @@ func (p *Client) Close() {
 }
 
 func (p *Client) SendMsg(data []byte) error {
+	p.debuglogs.LogDebug("Sending data ", string(data))
 	(*p.conn).SetWriteDeadline(time.Now().Add(p.timeout))
 	_, err := (*p.conn).Write(data)
 	return err
@@ -112,5 +119,6 @@ func (p *Client) RecvMsg() (data []byte, err error) {
 	(*p.conn).SetReadDeadline(time.Now().Add(p.timeout))
 	data = p.southbuffer
 	n, err := (*p.conn).Read(data)
+	p.debuglogs.LogDebug("Received data ", string(data[:n]))
 	return data[:n], err
 }

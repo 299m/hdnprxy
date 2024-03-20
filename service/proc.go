@@ -2,13 +2,14 @@ package service
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/299m/util/util"
 	"github.com/gorilla/websocket"
 	"hdnprxy/configs"
 	"hdnprxy/proxy"
 	relay2 "hdnprxy/relay"
-	"hdnprxy/util"
 	"log"
 	"net"
 	"net/http"
@@ -33,6 +34,8 @@ type Service struct {
 	buffersize int
 
 	allowedcacerts []string /// If we are using our own ca cert. This can be useful if we don't trust the ceritifcate store of our system
+	proxycfg       *proxy.Config
+	debuglogs      bool
 }
 
 type Content struct {
@@ -57,6 +60,7 @@ type General struct {
 	Timeout          string
 	ProxyBufferSizes int
 	AllowedCACerts   []string
+	Debuglogs        bool
 }
 
 func (g *General) Expand() {
@@ -87,6 +91,7 @@ func NewService(cfgpath string) *Service {
 		"content": &Content{},
 		"proxies": &Proxies{},
 		"general": &General{},
+		"engine":  &proxy.Config{},
 	}
 	util.ReadConfig(cfgpath, configs)
 	timeout, err := time.ParseDuration(configs["general"].(*General).Timeout)
@@ -100,31 +105,44 @@ func NewService(cfgpath string) *Service {
 		timeout:        timeout,
 		buffersize:     configs["general"].(*General).ProxyBufferSizes,
 		allowedcacerts: configs["general"].(*General).AllowedCACerts,
+		proxycfg:       configs["engine"].(*proxy.Config),
+		debuglogs:      configs["general"].(*General).Debuglogs,
 	}
 	http.HandleFunc("/", svc.HandleHtml)
 	http.HandleFunc("/home", svc.HandleHome)
+	fmt.Println("Proxy route", svc.proxyroute)
 	http.HandleFunc(svc.proxyroute, svc.HandleProxy)
 
 	return svc
 }
 
-func (p *Service) hijack(w http.ResponseWriter) (net.Conn, error) {
+func (p *Service) DebugLog(msg ...any) {
+	if p.debuglogs {
+		fmt.Print(time.Now(), ">")
+		fmt.Println(msg...)
+	}
+}
+
+func (p *Service) hijack(w http.ResponseWriter) (c net.Conn, pendingdata []byte, err error) {
 	fmt.Println("Hijacking the http connection")
 	h, ok := w.(http.Hijacker)
 	if !ok {
-		return nil, errors.New("Hijacking not supported")
+		return nil, nil, errors.New("Hijacking not supported")
 	}
 	conn, brw, err := h.Hijack()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	if brw.Reader.Buffered() > 0 {
-		if err := conn.Close(); err != nil {
-			log.Printf("websocket: failed to close network connection: %v", err)
+	buffered := brw.Reader.Buffered()
+	pendingdata = make([]byte, buffered)
+	if buffered > 0 {
+		n, err := brw.Read(pendingdata)
+		util.CheckError(err)
+		if n != buffered {
+			log.Panicln("Buffered data not read completely or something ", n, buffered)
 		}
-		return nil, errors.New("Client sent data before handshake is complete")
 	}
-	return conn, nil
+	return conn, pendingdata, nil
 }
 
 // / Raw tcp proxy - north and south
@@ -134,15 +152,18 @@ func (p *Service) HandleNetProxy(w http.ResponseWriter, req *http.Request, proxy
 	north.AllowCert(p.allowedcacerts)
 	err := north.Connect()
 	if err != nil {
-		log.Println("Unable to ocnnect ", err)
+		log.Println("Unable to connect ", err)
 		http.Error(w, "Server error", 500)
 		return
 	}
 	//defer relay.Close()
-	conn, err := p.hijack(w)
+	conn, pendingdata, err := p.hijack(w)
+	util.CheckError(err)
 	//// Only accept secure connections - make sure this is a tls connection
 	south := relay2.NewClientFromConn(conn.(*tls.Conn), p.timeout)
-	processor := proxy.NewEngine(north, south, &proxy.Config{Buffersize: p.buffersize})
+	north.SendMsg(pendingdata)
+
+	processor := proxy.NewEngine(north, south, p.proxycfg)
 	go processor.ProcessNorthbound()
 	go processor.ProcessSouthbound()
 }
@@ -164,7 +185,7 @@ func (p *Service) HandleWsProxy(w http.ResponseWriter, req *http.Request, proxyc
 		return
 	}
 	south := relay2.NewWebSockRelayFromConn(conn, p.timeout)
-	processor := proxy.NewEngine(north, south, &proxy.Config{Buffersize: p.buffersize})
+	processor := proxy.NewEngine(north, south, p.proxycfg)
 	go processor.ProcessNorthbound()
 	go processor.ProcessSouthbound()
 }
@@ -181,11 +202,12 @@ func (p *Service) HandleNetWSProxy(w http.ResponseWriter, req *http.Request, pro
 
 	}
 	//defer relay.Close()
-	conn, err := p.hijack(w)
+	conn, pendingdata, err := p.hijack(w)
 	util.CheckError(err)
 	// Only accept secure connections - make sure this is a tls connection
 	south := relay2.NewClientFromConn(conn.(*tls.Conn), p.timeout)
-	processor := proxy.NewEngine(north, south, &proxy.Config{Buffersize: p.buffersize})
+	north.SendMsg(pendingdata)
+	processor := proxy.NewEngine(north, south, p.proxycfg)
 	go processor.ProcessNorthbound()
 	go processor.ProcessSouthbound()
 }
@@ -200,7 +222,7 @@ func (p *Service) HandleWSNetProxy(w http.ResponseWriter, req *http.Request, pro
 	err = north.Connect()
 	util.CheckError(err)
 	south := relay2.NewWebSockRelayFromConn(conn, p.timeout)
-	processor := proxy.NewEngine(north, south, &proxy.Config{Buffersize: p.buffersize})
+	processor := proxy.NewEngine(north, south, p.proxycfg)
 	go processor.ProcessNorthbound()
 	go processor.ProcessSouthbound()
 }
@@ -208,12 +230,22 @@ func (p *Service) HandleWSNetProxy(w http.ResponseWriter, req *http.Request, pro
 // Create a http handler function for all proxy keys
 func (p *Service) HandleProxy(res http.ResponseWriter, req *http.Request) {
 	defer util.OnPanic(res)
-	fmt.Println("Http handle proxy")
+	p.DebugLog("Http handle proxy")
 	///read the proxy param and see if it matches any of the keys
-	proxykey := req.URL.Query().Get(p.proxyparam)
+	dec := json.NewDecoder(req.Body)
+	data := make(map[string]string)
+	err := dec.Decode(&data)
+	util.CheckError(err)
+	proxykey, ok := data[p.proxyparam]
+	if !ok {
+		log.Println("No proxy param in the request, expected to find", p.proxyparam)
+		http.Error(res, "Invalid message, see server for details", 400)
+		return
+	}
 
 	proxy, ok := p.proxies.Proxies[proxykey]
 	if !ok {
+		log.Println("Proxy not found", proxykey)
 		http.Error(res, "Not found", 400)
 		return
 	}
@@ -241,12 +273,14 @@ func (p *Service) HandleHtml(res http.ResponseWriter, req *http.Request) {
 	}
 
 	if strings.Contains(resppath, "..") {
+		log.Println("Invalid path", resppath)
 		http.Error(res, "Invalid path", 400)
 		return
 	}
 	file := filepath.Join(p.content.Basedir, resppath)
 	stat, err := os.Stat(file)
 	if err != nil {
+		log.Println("File not found", file, err)
 		http.Error(res, "File not found", 404)
 		return
 	}

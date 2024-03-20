@@ -1,8 +1,8 @@
 {
   "Proxies": {
     "ab": {
-      "Proxyendpoint": "https://bbc.com",
-      "Type": "n-ws"
+      "Proxyendpoint": "https://localhost:41443",
+      "Type": "net"
     }
   }
 }

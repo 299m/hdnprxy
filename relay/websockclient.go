@@ -1,17 +1,18 @@
 package relay
 
 import (
+	"github.com/299m/util/util"
 	"github.com/gorilla/websocket"
-	"hdnprxy/util"
 	"log"
 	"time"
 )
 
 // /Obey the client interface (in schema) but to the north have a web socket and to the south have a tcp connection
 type WebSockRelay struct {
-	url     string
-	timeout time.Duration
-	conn    *websocket.Conn
+	url       string
+	timeout   time.Duration
+	conn      *websocket.Conn
+	debuglogs DebugLog
 }
 
 // // Use this to create a new north bound relay, which can then be connected
@@ -28,6 +29,10 @@ func NewWebSockRelayFromConn(conn *websocket.Conn, timeout time.Duration) *WebSo
 		conn:    conn,
 		timeout: timeout,
 	}
+}
+
+func (p *WebSockRelay) EnableDebugLogs(on bool) {
+	p.debuglogs.EnableDebugLogs(on)
 }
 
 func (p *WebSockRelay) Connect() error {
