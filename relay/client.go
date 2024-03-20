@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/299m/util/util"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -17,7 +18,7 @@ import (
 type Client struct {
 	url     string
 	timeout time.Duration
-	conn    *tls.Conn
+	conn    net.Conn
 
 	southbuffer   []byte
 	trustedcacert []string
@@ -26,6 +27,7 @@ type Client struct {
 	paramvalue string
 
 	debuglogs DebugLog
+	connid    string
 }
 
 func NewClient(url string, timeout time.Duration) *Client {
@@ -49,7 +51,7 @@ func NewTunnelClient(url string, timeout time.Duration, paramname string, paramv
 }
 
 // / Create a new client from an existing connection
-func NewClientFromConn(conn *tls.Conn, timeout time.Duration) *Client {
+func NewClientFromConn(conn net.Conn, timeout time.Duration) *Client {
 	return &Client{
 		conn:        conn,
 		timeout:     timeout,
@@ -61,8 +63,9 @@ func (p *Client) AllowCert(cert []string) {
 	p.trustedcacert = cert
 }
 
-func (p *Client) EnableDebugLogs(on bool) {
-	p.debuglogs.EnableDebugLogs(on)
+func (p *Client) EnableDebugLogs(on bool, connid string) {
+	p.debuglogs.EnableDebugLogs(on, connid)
+	p.connid = connid
 }
 
 func (p *Client) Connect() error {
@@ -105,20 +108,24 @@ func (p *Client) Connect() error {
 }
 
 func (p *Client) Close() {
-	(*p.conn).Close()
+	p.conn.Close()
 }
 
 func (p *Client) SendMsg(data []byte) error {
-	p.debuglogs.LogDebug("Sending data ", string(data))
-	(*p.conn).SetWriteDeadline(time.Now().Add(p.timeout))
-	_, err := (*p.conn).Write(data)
+	p.debuglogs.LogData(string(data), "send: ")
+	p.conn.SetWriteDeadline(time.Now().Add(p.timeout))
+	_, err := p.conn.Write(data)
+	//// FOR DEBUGGING TLS ISSUE
+	util.CheckError(err)
 	return err
 }
 
 func (p *Client) RecvMsg() (data []byte, err error) {
-	(*p.conn).SetReadDeadline(time.Now().Add(p.timeout))
+	p.conn.SetReadDeadline(time.Now().Add(p.timeout))
 	data = p.southbuffer
-	n, err := (*p.conn).Read(data)
-	p.debuglogs.LogDebug("Received data ", string(data[:n]))
+	n, err := p.conn.Read(data)
+	//// FOR DEBUGGING TLS ISSUE
+	util.CheckError(err)
+	p.debuglogs.LogData(string(data[:n]), "recv: ")
 	return data[:n], err
 }

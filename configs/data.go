@@ -7,8 +7,10 @@ type TlsConfig struct {
 	Key  string
 	Port string
 
-	IsHttps bool /// one of these must be set
-	IsProxy bool
+	IsHttps    bool /// one of these must be set
+	IsProxy    bool
+	IsTlsProxy bool /// it seems we're getting data prior to the tls handshake
+	IsTcpProxy bool
 }
 
 func (t *TlsConfig) Expand() {

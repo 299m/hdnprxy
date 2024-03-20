@@ -2,5 +2,5 @@
   "Cert": "$LOCAL_CERT",
   "Key":  "$LOCAL_KEY",
   "Port": "20443",
-  "IsProxy": true
+  "IsTcpProxy": true
 }

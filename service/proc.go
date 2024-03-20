@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bufio"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -124,7 +125,7 @@ func (p *Service) DebugLog(msg ...any) {
 }
 
 func (p *Service) hijack(w http.ResponseWriter) (c net.Conn, pendingdata []byte, err error) {
-	fmt.Println("Hijacking the http connection")
+	p.DebugLog("Hijacking the http connection")
 	h, ok := w.(http.Hijacker)
 	if !ok {
 		return nil, nil, errors.New("Hijacking not supported")
@@ -161,6 +162,10 @@ func (p *Service) HandleNetProxy(w http.ResponseWriter, req *http.Request, proxy
 	util.CheckError(err)
 	//// Only accept secure connections - make sure this is a tls connection
 	south := relay2.NewClientFromConn(conn.(*tls.Conn), p.timeout)
+	if p.proxycfg.Lognorth { /// slightly messy - but lets see whats beign sent
+		north.EnableDebugLogs(true, "svc-net-north")
+	}
+	p.DebugLog("Sending pending data to north", string(pendingdata))
 	north.SendMsg(pendingdata)
 
 	processor := proxy.NewEngine(north, south, p.proxycfg)
@@ -307,13 +312,13 @@ func (p *Service) HandleHome(res http.ResponseWriter, req *http.Request) {
 func (p *Service) HandleTunnel(conn net.Conn, proxycontent *ProxyContent, tunnel *Tunnel) {
 	// / Create a new client from the connection
 	fmt.Println("Handling tunnel")
-	south := relay2.NewClientFromConn(conn.(*tls.Conn), p.timeout)
+	south := relay2.NewClientFromConn(conn, p.timeout)
 
 	north := relay2.NewTunnelClient(proxycontent.Proxyendpoint, p.timeout, tunnel.Paramname, tunnel.Paramval)
 	north.AllowCert(p.allowedcacerts)
 	err := north.Connect()
 	util.CheckError(err)
-	processor := proxy.NewEngine(north, south, &proxy.Config{Buffersize: p.buffersize})
+	processor := proxy.NewEngine(north, south, p.proxycfg)
 	go processor.ProcessNorthbound()
 	go processor.ProcessSouthbound()
 	fmt.Println("Tunnel setup complete")
@@ -335,6 +340,72 @@ func ProxyListenAndServe(servercfg *configs.TlsConfig, svc *Service, tunnel *Tun
 	for {
 		conn, err := listener.Accept()
 		util.CheckError(err)
+		svc.HandleTunnel(conn, svc.proxies.Proxies["tunnel"], tunnel) /// this should return after setting up the tunnel
+	}
+
+}
+
+func sendResponse(conn net.Conn, status string, statuscode int) {
+	resp := http.Response{
+		Status:        status,
+		StatusCode:    statuscode,
+		Proto:         "HTTP/1.1",
+		ProtoMajor:    1,
+		ProtoMinor:    1,
+		Header:        http.Header{},
+		ContentLength: 0,
+		Close:         false,
+		Uncompressed:  false,
+	}
+	conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+	err := resp.Write(conn)
+	util.CheckError(err)
+}
+
+func HandleConnect(conn net.Conn) {
+	fmt.Println("Handling connect")
+	///Read as much data as is available, check it matches a CONNECT header and then respond with success, else with a 400
+	reader := bufio.NewReader(conn)
+	req, err := http.ReadRequest(reader)
+	if err != nil {
+		sendResponse(conn, "Bad request", http.StatusBadRequest)
+		return
+	}
+	///Check we have a host and port
+	host, port, err := net.SplitHostPort(req.Host)
+	util.CheckError(err)
+	if len(host) == 0 || len(port) == 0 {
+		fmt.Println("Invalid host or port", host, port)
+		sendResponse(conn, "Bad request", http.StatusBadRequest)
+		return
+
+	}
+	fmt.Println("Host", host, "Port", port)
+	sendResponse(conn, "Success", http.StatusOK)
+	util.CheckError(err)
+
+}
+
+func ProxyListenAndServeTcpTls(servercfg *configs.TlsConfig, svc *Service, tunnel *Tunnel, upgradetotls bool) {
+
+	/// Start a tls listener
+	/// Load the server certs
+	cer, err := tls.LoadX509KeyPair(servercfg.Cert, servercfg.Key)
+	util.CheckError(err)
+	tlsconfig := &tls.Config{
+		Certificates: []tls.Certificate{cer},
+	}
+
+	fmt.Println("Starting tunnel server on port", servercfg.Port)
+	listener, err := net.Listen("tcp", ":"+servercfg.Port)
+	util.CheckError(err)
+	for {
+		conn, err := listener.Accept()
+		util.CheckError(err)
+		HandleConnect(conn)
+		if upgradetotls {
+			conn = tls.Server(conn, tlsconfig)
+		}
 		svc.HandleTunnel(conn, svc.proxies.Proxies["tunnel"], tunnel) /// this should return after setting up the tunnel
 	}
 
@@ -362,6 +433,10 @@ func ListenAndServeTls(cfgpath string) {
 		ProxyListenAndServe(servercfg, svc, tunnel)
 	} else if tlsconfig["tls"].(*configs.TlsConfig).IsHttps {
 		ListenAndServeHttps(servercfg)
+	} else if tlsconfig["tls"].(*configs.TlsConfig).IsTlsProxy {
+		ProxyListenAndServeTcpTls(servercfg, svc, tunnel, true)
+	} else if tlsconfig["tls"].(*configs.TlsConfig).IsTcpProxy {
+		ProxyListenAndServeTcpTls(servercfg, svc, tunnel, false)
 	} else {
 		log.Panicln("Invalid tls config, one of IsProxy or IsHttps must be set")
 	}

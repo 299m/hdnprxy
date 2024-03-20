@@ -5,5 +5,5 @@ type Relay interface {
 	Close()
 	SendMsg(data []byte) error
 	RecvMsg() (data []byte, err error)
-	EnableDebugLogs(bool)
+	EnableDebugLogs(bool, string)
 }

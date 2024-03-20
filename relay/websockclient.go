@@ -31,8 +31,8 @@ func NewWebSockRelayFromConn(conn *websocket.Conn, timeout time.Duration) *WebSo
 	}
 }
 
-func (p *WebSockRelay) EnableDebugLogs(on bool) {
-	p.debuglogs.EnableDebugLogs(on)
+func (p *WebSockRelay) EnableDebugLogs(on bool, connid string) {
+	p.debuglogs.EnableDebugLogs(on, connid)
 }
 
 func (p *WebSockRelay) Connect() error {
