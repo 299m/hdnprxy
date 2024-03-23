@@ -1,0 +1,8 @@
+{
+  "ProxyParam": "exo",
+  "ProxyRoute": "/aa912",
+  "Timeout": "30s",
+  "ProxyBufferSizes": 2014,
+  "Debuglogs": true,
+  "AllowedCACerts": ["./certs/ca-cert.pem"]
+}

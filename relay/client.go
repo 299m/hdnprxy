@@ -38,7 +38,7 @@ func NewClient(url string, timeout time.Duration) *Client {
 	}
 }
 
-// / if we are setting up a tunnel from a local proxy server ot a remote proxy, use this
+// / if we are setting up a tunnel from a local proxy server ot a config proxy, use this
 func NewTunnelClient(url string, timeout time.Duration, paramname string, paramvalue string) *Client {
 	fmt.Println("Creating tunnel client with url ", url)
 	return &Client{

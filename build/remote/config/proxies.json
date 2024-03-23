@@ -1,0 +1,8 @@
+{
+  "Proxies": {
+    "ab925af": {
+      "Proxyendpoint": "https://$PROXY_ADDRESS:$PROXY_PORT",
+      "Type": "net"
+    }
+  }
+}

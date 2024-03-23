@@ -1,0 +1,8 @@
+{
+  "Proxies": {
+   "tunnel": {
+      "Proxyendpoint": "tls://$REMOTE_HDNPRXY:443/aa912",
+      "Type": "net"
+    }
+  }
+}

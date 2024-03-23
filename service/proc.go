@@ -77,7 +77,7 @@ func (p *Proxies) Expand() {
 }
 
 type Tunnel struct {
-	Paramname string //// These are the triggers to start the tunnel on the remote side
+	Paramname string //// These are the triggers to start the tunnel on the config side
 	Paramval  string
 }
 
@@ -147,6 +147,7 @@ func (p *Service) hijack(w http.ResponseWriter) (c net.Conn, pendingdata []byte,
 
 // / Raw tcp proxy - north and south
 func (p *Service) HandleNetProxy(w http.ResponseWriter, req *http.Request, proxycfg *ProxyContent) {
+	defer util.OnPanic(w)
 	fmt.Println("Handling net proxy")
 	north := relay2.NewClient(proxycfg.Proxyendpoint, p.timeout)
 	north.AllowCert(p.allowedcacerts)
@@ -174,6 +175,7 @@ func (p *Service) HandleNetProxy(w http.ResponseWriter, req *http.Request, proxy
 
 // / Raw websocket proxy - north and south
 func (p *Service) HandleWsProxy(w http.ResponseWriter, req *http.Request, proxycfg *ProxyContent) {
+	defer util.OnPanic(w)
 	fmt.Println("Handling ws proxy")
 	north := relay2.NewWebSockRelay(proxycfg.Proxyendpoint, p.timeout)
 	err := north.Connect()
@@ -196,6 +198,7 @@ func (p *Service) HandleWsProxy(w http.ResponseWriter, req *http.Request, proxyc
 
 // Websocket to the north - raw tcp to the south
 func (p *Service) HandleNetWSProxy(w http.ResponseWriter, req *http.Request, proxycfg *ProxyContent) {
+	defer util.OnPanic(w)
 	fmt.Println("Handling net ws proxy")
 	north := relay2.NewWebSockRelay(proxycfg.Proxyendpoint, p.timeout)
 	err := north.Connect()
@@ -218,6 +221,7 @@ func (p *Service) HandleNetWSProxy(w http.ResponseWriter, req *http.Request, pro
 
 // Raw tcp to the north - websocket to the south
 func (p *Service) HandleWSNetProxy(w http.ResponseWriter, req *http.Request, proxycfg *ProxyContent) {
+	defer util.OnPanic(w)
 	fmt.Println("Handling ws net proxy")
 	conn, err := upgrader.Upgrade(w, req, nil)
 	util.CheckError(err)
@@ -309,6 +313,7 @@ func (p *Service) HandleHome(res http.ResponseWriter, req *http.Request) {
 }
 
 func (p *Service) HandleTunnel(conn net.Conn, proxycontent *ProxyContent, tunnel *Tunnel) {
+	defer util.OnPanicFunc()
 	// / Create a new client from the connection
 	fmt.Println("Handling tunnel")
 	south := relay2.NewClientFromConn(conn, p.timeout)
@@ -387,7 +392,7 @@ func HandleConnect(conn net.Conn) {
 }
 
 */
-
+///Run this within your local network - the HTTP Connect is plain text over the network
 func ProxyListenAndServeTcpTls(servercfg *configs.TlsConfig, svc *Service, tunnel *Tunnel, upgradetotls bool) {
 
 	/// Start a tls listener
