@@ -1,7 +1,11 @@
 {
   "Proxies": {
-    "ab925af": {
+    "$RESTRICTED": {
       "Proxyendpoint": "https://$PROXY_ADDRESS:$PROXY_PORT",
+      "Type": "net"
+    },
+    "$OPEN_ACCESS": {
+      "Proxyendpoint": "https://$FULL_PROXY_ADDRESS:$FULL_PROXY_PORT",
       "Type": "net"
     }
   }
