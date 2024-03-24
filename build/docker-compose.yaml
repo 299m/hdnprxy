@@ -1,0 +1,26 @@
+version: '3.5'
+
+services:
+  hdnprxy:
+    build: .
+    image: 299m/core:hdnprxy-1.0.0
+    #    command: /bin/sh -c "/bin/data-breaks-front"
+    environment:
+      - REMOTE_KEY=/certs/server.key
+      - REMOTE_CERT=/certs/server-certs.crt
+      - PROXY_ROUTE=$PROXY_ROUTE
+      - PROXY_ADDRESS=$PROXY_ADDRESS
+      - PROXY_PORT=$PROXY_PORT
+      - FULL_PROXY_ADDRESS=$FULL_PROXY_ADDRESS
+      - FULL_PROXY_PORT=$FULL_PROXY_PORT
+    ports:
+      - "443:443"
+    volumes:
+      - ~/certs:/certs
+      - /etc/ssl/certs:/etc/ssl/certs
+    logging:
+      #driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+
