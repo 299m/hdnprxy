@@ -64,6 +64,12 @@ type General struct {
 }
 
 func (g *General) Expand() {
+
+	//// Do any other expansion above this
+	if len(g.AllowedCACerts) == 1 && strings.Contains(g.AllowedCACerts[0], ",") {
+		g.AllowedCACerts = strings.Split(g.AllowedCACerts[0], ",")
+		return
+	}
 	for i, cert := range g.AllowedCACerts {
 		g.AllowedCACerts[i] = os.ExpandEnv(cert)
 	}
