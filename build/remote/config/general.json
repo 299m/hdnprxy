@@ -4,5 +4,5 @@
   "Timeout": "30s",
   "ProxyBufferSizes": 2014,
   "Debuglogs": true,
-  "AllowedCACerts": []
+  "AllowedCACerts": ["$CA_CERTS"]
 }
