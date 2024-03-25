@@ -1,6 +1,6 @@
 {
   "ProxyParam": "exo",
-  "ProxyRoute": "/$PROXY_ROUTE",
+  "ProxyRoute": "$PROXY_ROUTE",
   "Timeout": "30s",
   "ProxyBufferSizes": 2014,
   "Debuglogs": true,
