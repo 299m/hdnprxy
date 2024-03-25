@@ -33,7 +33,7 @@
             <p class="m-0">
                 (currenctly only Linux Ubuntu packages are available).
                 <Divider />
-                Download the zip file from <a href="/download/local.zip">here</a>.
+                Download the zip file from <a href="/http/dist/downloads/local.zip">here</a>.
                 <Divider />
                 Move the downloaded zip file to your home directory (or copy it from Downloads to your home directory).
                 <Divider />
