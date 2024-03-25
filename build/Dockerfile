@@ -8,4 +8,4 @@ ENV REMOTE_KEY=./certs/combined-key.pem
 ### Copy the config config into the docker image
 COPY ./remote /remote
 
-ENTRYPOINT ["hdnprxy", "--config", "./remote/config"]
+ENTRYPOINT ["./bin/hdnprxy", "--config", "./remote/config"]
