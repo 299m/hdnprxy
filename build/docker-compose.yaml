@@ -4,7 +4,6 @@ services:
   hdnprxy:
     build: .
     image: 299m/core:hdnprxy-1.0.0
-    #    command: /bin/sh -c "/bin/data-breaks-front"
     environment:
       - REMOTE_KEY=/certs/server.key
       - REMOTE_CERT=/certs/server-certs.crt
