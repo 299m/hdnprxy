@@ -411,7 +411,7 @@ func ProxyListenAndServeTcpTls(servercfg *configs.TlsConfig, svc *Service, tunne
 		Certificates: []tls.Certificate{cer},
 	}
 
-	fmt.Println("Starting tunnel server on port", servercfg.Port)
+	fmt.Println("Starting tunnel server on port", servercfg.Port, "with tls", upgradetotls)
 	listener, err := net.Listen("tcp", ":"+servercfg.Port)
 	util.CheckError(err)
 	for {
@@ -428,7 +428,7 @@ func ProxyListenAndServeTcpTls(servercfg *configs.TlsConfig, svc *Service, tunne
 
 func ListenAndServeHttps(servercfg *configs.TlsConfig) {
 	// Start the server
-	fmt.Println("Starting server on port", servercfg.Port)
+	fmt.Println("Starting server on port", servercfg.Port, "with cert", servercfg.Cert, "and key", servercfg.Key)
 	err := http.ListenAndServeTLS(":"+servercfg.Port, servercfg.Cert, servercfg.Key, nil)
 
 	util.CheckError(err)
