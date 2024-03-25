@@ -1,7 +1,7 @@
 {
   "Proxies": {
    "tunnel": {
-      "Proxyendpoint": "tls://$REMOTE_HDNPRXY:443/aa912",
+      "Proxyendpoint": "tls://299m.io:443/7a28fe",
       "Type": "net"
     }
   }
