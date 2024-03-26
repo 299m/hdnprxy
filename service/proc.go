@@ -344,7 +344,7 @@ func (p *Service) HandleTunnel(conn net.Conn, proxycontent *ProxyContent, tunnel
 
 	north := relay2.NewTunnelClient(proxycontent.Proxyendpoint, p.timeout, tunnel.Paramname, tunnel.Paramval)
 	north.AllowCert(p.allowedcacerts)
-	err := north.Connect()
+	err = north.Connect()
 	util.CheckError(err)
 	processor := proxy.NewEngine(north, south, p.proxycfg)
 	go processor.ProcessNorthbound()
