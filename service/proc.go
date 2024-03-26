@@ -83,13 +83,13 @@ type Proxies struct {
 
 func (p *Proxies) Expand() {
 	//shallow copy the map first - otherwise we're iterating and changing it at the same time
-	proxies := p.Proxies
-	for key, proxy := range proxies {
+	proxies := make(map[string]*ProxyContent)
+	for key, proxy := range p.Proxies {
 		truekey := os.ExpandEnv(key)
 		proxy.Proxyendpoint = os.ExpandEnv(proxy.Proxyendpoint)
-		p.Proxies[truekey] = proxy
-		delete(p.Proxies, key)
+		proxies[truekey] = proxy
 	}
+	p.Proxies = proxies
 }
 
 type Tunnel struct {
