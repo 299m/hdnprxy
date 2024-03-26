@@ -1,7 +1,6 @@
 package service
 
 import (
-	"bufio"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -121,6 +120,8 @@ func NewService(cfgpath string) *Service {
 	http.HandleFunc("/home", svc.HandleHome)
 	fmt.Println("Proxy route", svc.proxyroute)
 	http.HandleFunc(svc.proxyroute, svc.HandleProxy)
+
+	svc.DebugLog("Proxies ", svc.proxies.Proxies)
 
 	return svc
 }
@@ -331,20 +332,13 @@ func (p *Service) HandleTunnel(conn net.Conn, proxycontent *ProxyContent, tunnel
 	defer util.OnPanicFunc()
 	// / Create a new client from the connection
 	fmt.Println("Handling tunnel")
-	/// Read the 1st response from the north - then, if it's a http 200, we can start the tunnel
-	firstresp, err := http.ReadResponse(bufio.NewReader(conn), nil) /// this is a
-	util.CheckError(err)
-	if firstresp.StatusCode != 200 {
-		fmt.Println("Error response from the north", firstresp.Status)
-		return
-	}
 	/// the first response should not have any body - it's simply a status response
 
 	south := relay2.NewClientFromConn(conn, p.timeout)
 
 	north := relay2.NewTunnelClient(proxycontent.Proxyendpoint, p.timeout, tunnel.Paramname, tunnel.Paramval)
 	north.AllowCert(p.allowedcacerts)
-	err = north.Connect()
+	err := north.Connect()
 	util.CheckError(err)
 	processor := proxy.NewEngine(north, south, p.proxycfg)
 	go processor.ProcessNorthbound()

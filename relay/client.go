@@ -1,6 +1,7 @@
 package relay
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
@@ -68,6 +69,22 @@ func (p *Client) EnableDebugLogs(on bool, connid string) {
 	p.connid = connid
 }
 
+func (p *Client) checkFirstResp(conn net.Conn) (valid bool, status string) {
+	/// Read the 1st response from the north - then, if it's a http 200, we can start the tunnel
+	///DEBUG - read the raw data - see what we get
+	//buf := make([]byte, 1024)
+	//n, err := conn.Read(buf)
+	//fmt.Println("Raw HTTP response ", string(buf[:n]))
+	//util.CheckError(err)
+	firstresp, err := http.ReadResponse(bufio.NewReader(conn), nil) /// this is a
+	util.CheckError(err)
+	if firstresp.StatusCode != 200 {
+		fmt.Println("Error response from the north", firstresp.Status)
+		return false, firstresp.Status
+	}
+	return true, ""
+}
+
 func (p *Client) Connect() error {
 	config := &tls.Config{}
 	// Get the SystemCertPool, continue with an empty pool on error
@@ -103,6 +120,9 @@ func (p *Client) Connect() error {
 		/// This should trigger the tunnel setup - after that we should be on a tls/tcp protocol
 		err = req.Write(p.conn)
 		util.CheckError(err)
+		if valid, status := p.checkFirstResp(p.conn); !valid {
+			return fmt.Errorf(status)
+		}
 	}
 	return nil
 }
