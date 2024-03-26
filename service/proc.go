@@ -83,6 +83,7 @@ type Proxies struct {
 
 func (p *Proxies) Expand() {
 	for key, proxy := range p.Proxies {
+		fmt.Println("Expanding proxy", key, proxy)
 		truekey := os.ExpandEnv(key)
 		proxy.Proxyendpoint = os.ExpandEnv(proxy.Proxyendpoint)
 		p.Proxies[truekey] = proxy
