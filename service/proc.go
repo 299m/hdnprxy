@@ -82,8 +82,9 @@ type Proxies struct {
 }
 
 func (p *Proxies) Expand() {
-	for key, proxy := range p.Proxies {
-		fmt.Println("Expanding proxy", key, proxy)
+	//shallow copy the map first - otherwise we're iterating and changing it at the same time
+	proxies := p.Proxies
+	for key, proxy := range proxies {
 		truekey := os.ExpandEnv(key)
 		proxy.Proxyendpoint = os.ExpandEnv(proxy.Proxyendpoint)
 		p.Proxies[truekey] = proxy
