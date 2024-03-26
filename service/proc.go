@@ -171,7 +171,7 @@ func (p *Service) HandleNetProxy(w http.ResponseWriter, req *http.Request, proxy
 	conn, pendingdata, err := p.hijack(w)
 	util.CheckError(err)
 
-	sendResponse(conn, "HTTP/1.1 200 OK", 200) /// after this, go to raw tcp/tls
+	sendResponse(conn, "", 200) /// after this, go to raw tcp/tls
 
 	//// Only accept secure connections - make sure this is a tls connection
 	south := relay2.NewClientFromConn(conn.(*tls.Conn), p.timeout)
@@ -387,6 +387,7 @@ func sendResponse(conn net.Conn, status string, statuscode int) {
 	}
 	conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 	err := resp.Write(conn)
+
 	util.CheckError(err)
 }
 
