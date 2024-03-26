@@ -403,14 +403,6 @@ func HandleConnect(conn net.Conn) {
 ///Run this within your local network - the HTTP Connect is plain text over the network
 func ProxyListenAndServeTcpTls(servercfg *configs.TlsConfig, svc *Service, tunnel *Tunnel, upgradetotls bool) {
 
-	/// Start a tls listener
-	/// Load the server certs
-	cer, err := tls.LoadX509KeyPair(servercfg.Cert, servercfg.Key)
-	util.CheckError(err)
-	tlsconfig := &tls.Config{
-		Certificates: []tls.Certificate{cer},
-	}
-
 	fmt.Println("Starting tunnel server on port", servercfg.Port, "with tls", upgradetotls)
 	listener, err := net.Listen("tcp", ":"+servercfg.Port)
 	util.CheckError(err)
@@ -419,6 +411,13 @@ func ProxyListenAndServeTcpTls(servercfg *configs.TlsConfig, svc *Service, tunne
 		util.CheckError(err)
 		//HandleConnect(conn)
 		if upgradetotls {
+			/// Start a tls listener
+			/// Load the server certs
+			cer, err := tls.LoadX509KeyPair(servercfg.Cert, servercfg.Key)
+			util.CheckError(err)
+			tlsconfig := &tls.Config{
+				Certificates: []tls.Certificate{cer},
+			}
 			conn = tls.Server(conn, tlsconfig)
 		}
 		svc.HandleTunnel(conn, svc.proxies.Proxies["tunnel"], tunnel) /// this should return after setting up the tunnel
