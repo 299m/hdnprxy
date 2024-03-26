@@ -82,6 +82,12 @@ type Proxies struct {
 }
 
 func (p *Proxies) Expand() {
+	for key, proxy := range p.Proxies {
+		truekey := os.ExpandEnv(key)
+		proxy.Proxyendpoint = os.ExpandEnv(proxy.Proxyendpoint)
+		p.Proxies[truekey] = proxy
+		delete(p.Proxies, key)
+	}
 }
 
 type Tunnel struct {
