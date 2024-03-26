@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bufio"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -157,6 +158,7 @@ func (p *Service) hijack(w http.ResponseWriter) (c net.Conn, pendingdata []byte,
 func (p *Service) HandleNetProxy(w http.ResponseWriter, req *http.Request, proxycfg *ProxyContent) {
 	defer util.OnPanic(w)
 	fmt.Println("Handling net proxy")
+
 	north := relay2.NewClient(proxycfg.Proxyendpoint, p.timeout)
 	north.AllowCert(p.allowedcacerts)
 	err := north.Connect()
@@ -168,6 +170,9 @@ func (p *Service) HandleNetProxy(w http.ResponseWriter, req *http.Request, proxy
 	//defer relay.Close()
 	conn, pendingdata, err := p.hijack(w)
 	util.CheckError(err)
+
+	sendResponse(conn, "HTTP/1.1 200 OK", 200) /// after this, go to raw tcp/tls
+
 	//// Only accept secure connections - make sure this is a tls connection
 	south := relay2.NewClientFromConn(conn.(*tls.Conn), p.timeout)
 	if p.proxycfg.Lognorth { /// slightly messy - but lets see whats beign sent
@@ -254,7 +259,7 @@ func (p *Service) HandleProxy(res http.ResponseWriter, req *http.Request) {
 	util.CheckError(err)
 	proxykey, ok := data[p.proxyparam]
 	if !ok || proxykey == "" {
-		log.Println("No proxy param in the request, expected to find", p.proxyparam)
+		log.Println("No proxy param in the request, or the value is empty, expected to find", p.proxyparam)
 		http.Error(res, "File not found", 404)
 		return
 	}
@@ -265,6 +270,7 @@ func (p *Service) HandleProxy(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, "Not found", 400)
 		return
 	}
+
 	switch proxy.Type {
 	case "net":
 		p.HandleNetProxy(res, req, proxy)
@@ -288,7 +294,8 @@ func (p *Service) HandleHtml(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if strings.Contains(resppath, "..") {
+	if !filepath.IsLocal(resppath) ||
+		strings.Contains(resppath, "..") || strings.Contains(resppath, "~") || strings.Contains(resppath, "*") {
 		log.Println("Invalid path", resppath)
 		http.Error(res, "Invalid path", 400)
 		return
@@ -324,6 +331,15 @@ func (p *Service) HandleTunnel(conn net.Conn, proxycontent *ProxyContent, tunnel
 	defer util.OnPanicFunc()
 	// / Create a new client from the connection
 	fmt.Println("Handling tunnel")
+	/// Read the 1st response from the north - then, if it's a http 200, we can start the tunnel
+	firstresp, err := http.ReadResponse(bufio.NewReader(conn), nil) /// this is a
+	util.CheckError(err)
+	if firstresp.StatusCode != 200 {
+		fmt.Println("Error response from the north", firstresp.Status)
+		return
+	}
+	/// the first response should not have any body - it's simply a status response
+
 	south := relay2.NewClientFromConn(conn, p.timeout)
 
 	north := relay2.NewTunnelClient(proxycontent.Proxyendpoint, p.timeout, tunnel.Paramname, tunnel.Paramval)
@@ -357,7 +373,6 @@ func ProxyListenAndServe(servercfg *configs.TlsConfig, svc *Service, tunnel *Tun
 
 }
 
-/* OBSOLETE - pass to the proxy
 func sendResponse(conn net.Conn, status string, statuscode int) {
 	resp := http.Response{
 		Status:        status,
@@ -374,6 +389,8 @@ func sendResponse(conn net.Conn, status string, statuscode int) {
 	err := resp.Write(conn)
 	util.CheckError(err)
 }
+
+/* OBSOLETE - pass to the proxy
 
 func HandleConnect(conn net.Conn) {
 	fmt.Println("Handling connect")
