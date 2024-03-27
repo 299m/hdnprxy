@@ -206,6 +206,17 @@ move along now, nothing to see here.
 </Fieldset>
 </div>
 
+<div class="card">
+    <Fieldset legend="Problems?">
+    <p class="m-2">This is a WIP, but if you do have issues or want to report a problem, drop an email to tech-team@299m.io, and we'll do what we can to help.
+    </p>
+    <p>
+    </p>
+    </Fieldset>
+</div>
+<Divider/>
+<a href="https://www.digitalocean.com/?refcode=e8c6f2e583f5&utm_campaign=Referral_Invite&utm_medium=Referral_Program&utm_source=badge"><img src="https://web-platforms.sfo2.cdn.digitaloceanspaces.com/WWW/Badge%201.svg" alt="DigitalOcean Referral Badge" /></a>
+
 </template>
 
 
