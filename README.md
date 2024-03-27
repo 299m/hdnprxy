@@ -133,19 +133,20 @@ If you want to use the hdnprxy for general internet access, then you need to poi
 #### tls.json
 Set the certificate chain to present to the client hdnprxy on connection
 
-
+```
 "Cert": "$PROXY_CERT",  - the certificate bundle this server will present
 "Key":  "$PROXY_KEY",   - the key for the servers own certificate
 "Port": "443",           - it's recommended to leave as 443
 "IsHttps": true          - leave this.
-
+```
 #### filter.json
 Set the certificate chain to present to the client hdnprxy on connection
 
+```
 "Whitelist": [],       - if you want to restrict access to certain sites only, the pattern is a regular expression, e.g. .*[\.]google.com
 "Blacklist": [],       - if you wish to block certain sites, but allow access to everything else - useful for blocking tracking sites
 "WhitelistPorts": [80, 443] - restricted ports. It's recommended to  leave this as is.
-
+```
 ## Problems
 This is a WIP, but if you do have issues or want to report a problem, drop an email to tech-team@299m.io, and we'll do what we can to help.
 
