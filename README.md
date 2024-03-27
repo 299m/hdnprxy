@@ -69,7 +69,7 @@ This section just gives an overview of setup options and is intended for users w
 
 The hdnprxy is just a way to form a tunnel from a local hdnprxy to a remote hdnprxy. To provide internet access, a full proxt is also needed. You can use any proxy you like, but for our purposes we have provided one which can be downloaded from Github https://github.com/299m/httpprxy.git
 
-Download and build the two projects
+### Download and build the two projects
 
 git clone https://github.com/299m/httpprxy.git
 git clone https://github.com/299m/hdnprxy.git
@@ -80,60 +80,54 @@ go install
 
 
 
-Configuration
+### Configuration
 Most configuration can be left as the default - we only cover here, those that may be useful
 
-content.json
+#### content.json
 Either create your own web site or simply leave these instructions in place
 
-
+```
 "Homefile": "vue-cfg/http/dist/index.html", - this should be the index.html file.
 "Basedir":  "vue-cfg/http/dist" - this shoul be the html base directory from which all of this sites files are served
+```
 
-
-engine.json
+#### engine.json
 You can enable/disable various debug logs
 
-
-move along now, nothing to see here.
-
-
-general.json
-
+#### general.json
+```
 "ProxyParam": "exo", - the parameter name of a HTTP POST parameter that must be sent to initiate a proxy session (the value of this parameter must match the proxy name in proxies.json)
 "ProxyRoute": "/aa912", - the URL to request a proxy connection
 "AllowedCACerts": ["./certs/ca-cert.pem"] - these should be dynamically added to the pool of valid CA certs used for the next connection. You can normally leave this empty.
+```
 
-
-proxies.json
+#### proxies.json
 This is where you define the proxies and their targets
-
-
+```
 "Proxies": {            - define a set of proxies
-"ab925af": {        - the key to activate this proxy (must be passed as a POST param named in general.json->ProxyParam, in this case the name is exo )
-"Proxyendpoint": "https://$PROXY_ADDRESS:$PROXY_PORT", - the end point, such as a full porxy server
-"Type": "net"   - the type of this proxy, currently only 'net' is supported
+    "ab925af": {        - the key to activate this proxy (must be passed as a POST param named in general.json->ProxyParam, in this case the name is exo )
+        "Proxyendpoint": "https://$PROXY_ADDRESS:$PROXY_PORT", - the end point, such as a full porxy server
+        "Type": "net"   - the type of this proxy, currently only 'net' is supported
+    }
 }
-}
+```
 
 
-
-tls.json
+#### tls.json
 Set the certificate chain to present to the client hdnprxy on connection
-
-
+```
 "Cert": "$REMOTE_CERT",  - the certificate bundle this server will present
 "Key":  "$REMOTE_KEY",   - the key for the servers own certificate
 "Port": "443",           - it's recommended to leave as 443
 "IsHttps": true          - leave this.
+```
 
 
 
+## Setting up your own httpprxy
+If you want to use the hdnprxy for general internet access, then you need to point the remote hdnprxy at an HTTP proxy (such as httpprxy).
 
-Setting up your own httpprxy
-If you want to use the hdnprxy for general internet access, then you need to point the remote hdnprxy at an HTTP proxy (such as httpprxy)
-
-tls.json
+#### tls.json
 Set the certificate chain to present to the client hdnprxy on connection
 
 
@@ -142,13 +136,13 @@ Set the certificate chain to present to the client hdnprxy on connection
 "Port": "443",           - it's recommended to leave as 443
 "IsHttps": true          - leave this.
 
-
-
-filter.json
+#### filter.json
 Set the certificate chain to present to the client hdnprxy on connection
 
-
-"Whitelist": [],       - if you want to restrict access to certain sites only, e.g. stackoverflow.com
-"Blacklist": [],       - if you wish to block certain sites, but allow access to everything else
+"Whitelist": [],       - if you want to restrict access to certain sites only, the pattern is a regular expression, e.g. .*[\.]google.com
+"Blacklist": [],       - if you wish to block certain sites, but allow access to everything else - useful for blocking tracking sites
 "WhitelistPorts": [80, 443] - restricted ports. It's recommended to  leave this as is.
+
+## Problems
+This is a WIP, but if you do have issues or want to report a problem, drop an email to tech-team@299m.io, and we'll do what we can to help.
 
