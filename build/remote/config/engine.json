@@ -1,5 +1,5 @@
 {
-  "Buffersize": 1024,
+  "Buffersize": 2048,
   "Logdebug": false,
   "Lognorth": true,
   "Logsouth": true
