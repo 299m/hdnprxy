@@ -1,6 +1,6 @@
 {
   "Buffersize": 2048,
   "Logdebug": false,
-  "Lognorth": true,
-  "Logsouth": true
+  "Lognorth": false,
+  "Logsouth": false
 }
