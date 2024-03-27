@@ -73,13 +73,14 @@ The hdnprxy is just a way to form a tunnel from a local hdnprxy to a remote hdnp
 
 ### Download and build the two projects
 
+```
 git clone https://github.com/299m/httpprxy.git
 git clone https://github.com/299m/hdnprxy.git
 cd httpprxy
 go install
 cd ../hdnprxy
 go install
-
+```
 
 
 ### Configuration
