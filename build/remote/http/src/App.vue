@@ -58,11 +58,19 @@ cd local
                 You must have Go installed (see <a href="https://go.dev/doc/install">install Go</a>).
                 <Divider />
                 Clone the repo to your development folder
-                git clone https://github.com/299m/hdnprxy.git
+                <pre class="language-markup" tabindex="-1">
+                    <code class="language-markup">
+git clone https://github.com/299m/hdnprxy.git
+                    </code>
+                </pre>
                 <Divider />
                 Build the hdnprxy
-                cd hdnprxy
-                go install
+                <pre class="language-markup" tabindex="-1">
+                    <code class="language-markup">
+cd hdnprxy
+go install
+                    </code>
+                </pre>
                 <Divider />
                 Run the hdnprxy as a local proxy
                 <pre class="language-markup" tabindex="-1">
