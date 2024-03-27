@@ -33,10 +33,12 @@ Download the zip file from here.
 Move the downloaded zip file to your home directory (or copy it from Downloads to your home directory).
 Unzip the local.zip and run the script
 
+```
 cd ~/
 unzip local.zip
 cd local
 ./run-local.sh
+```
 
 ### Build from source
 You must have Go installed (see https://go.dev/doc/install).
