@@ -10,6 +10,7 @@ import (
 	"hdnprxy/configs"
 	"hdnprxy/proxy"
 	relay2 "hdnprxy/relay"
+	"hdnprxy/rules"
 	"log"
 	"net"
 	"net/http"
@@ -36,6 +37,8 @@ type Service struct {
 	allowedcacerts []string /// If we are using our own ca cert. This can be useful if we don't trust the ceritifcate store of our system
 	proxycfg       *proxy.Config
 	debuglogs      bool
+
+	rulesproc *rules.Processor
 }
 
 type Content struct {
@@ -104,10 +107,11 @@ func (t *Tunnel) Expand() {
 func NewService(cfgpath string) *Service {
 	// Read the config file
 	configs := map[string]util.Expandable{
-		"content": &Content{},
-		"proxies": &Proxies{},
-		"general": &General{},
-		"engine":  &proxy.Config{},
+		"content":       &Content{},
+		"proxies":       &Proxies{},
+		"general":       &General{},
+		"engine":        &proxy.Config{},
+		"connect-rules": &rules.ConnectConfig{},
 	}
 	util.ReadConfig(cfgpath, configs)
 	timeout, err := time.ParseDuration(configs["general"].(*General).Timeout)
@@ -123,6 +127,7 @@ func NewService(cfgpath string) *Service {
 		allowedcacerts: configs["general"].(*General).AllowedCACerts,
 		proxycfg:       configs["engine"].(*proxy.Config),
 		debuglogs:      configs["general"].(*General).Debuglogs,
+		rulesproc:      rules.NewProcessor(configs["connect-rules"].(*rules.ConnectConfig)),
 	}
 	http.HandleFunc("/", svc.HandleHtml)
 	http.HandleFunc("/home", svc.HandleHome)
@@ -190,7 +195,7 @@ func (p *Service) HandleNetProxy(w http.ResponseWriter, req *http.Request, proxy
 	p.DebugLog("Sending pending data to north", string(pendingdata))
 	north.SendMsg(pendingdata)
 
-	processor := proxy.NewEngine(north, south, p.proxycfg)
+	processor := proxy.NewEngine(north, south, p.proxycfg, p.rulesproc)
 	go processor.ProcessNorthbound()
 	go processor.ProcessSouthbound()
 }
@@ -213,7 +218,7 @@ func (p *Service) HandleWsProxy(w http.ResponseWriter, req *http.Request, proxyc
 		return
 	}
 	south := relay2.NewWebSockRelayFromConn(conn, p.timeout)
-	processor := proxy.NewEngine(north, south, p.proxycfg)
+	processor := proxy.NewEngine(north, south, p.proxycfg, p.rulesproc)
 	go processor.ProcessNorthbound()
 	go processor.ProcessSouthbound()
 }
@@ -236,7 +241,7 @@ func (p *Service) HandleNetWSProxy(w http.ResponseWriter, req *http.Request, pro
 	// Only accept secure connections - make sure this is a tls connection
 	south := relay2.NewClientFromConn(conn.(*tls.Conn), p.timeout)
 	north.SendMsg(pendingdata)
-	processor := proxy.NewEngine(north, south, p.proxycfg)
+	processor := proxy.NewEngine(north, south, p.proxycfg, p.rulesproc)
 	go processor.ProcessNorthbound()
 	go processor.ProcessSouthbound()
 }
@@ -252,7 +257,7 @@ func (p *Service) HandleWSNetProxy(w http.ResponseWriter, req *http.Request, pro
 	err = north.Connect()
 	util.CheckError(err)
 	south := relay2.NewWebSockRelayFromConn(conn, p.timeout)
-	processor := proxy.NewEngine(north, south, p.proxycfg)
+	processor := proxy.NewEngine(north, south, p.proxycfg, p.rulesproc)
 	go processor.ProcessNorthbound()
 	go processor.ProcessSouthbound()
 }
@@ -348,7 +353,7 @@ func (p *Service) HandleTunnel(conn net.Conn, proxycontent *ProxyContent, tunnel
 	north.AllowCert(p.allowedcacerts)
 	err := north.Connect()
 	util.CheckError(err)
-	processor := proxy.NewEngine(north, south, p.proxycfg)
+	processor := proxy.NewEngine(north, south, p.proxycfg, p.rulesproc)
 	go processor.ProcessNorthbound()
 	go processor.ProcessSouthbound()
 	fmt.Println("Tunnel setup complete")

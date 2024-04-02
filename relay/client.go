@@ -85,6 +85,14 @@ func (p *Client) checkFirstResp(conn net.Conn) (valid bool, status string) {
 	return true, ""
 }
 
+/*
+*
+After this, the connection belongs to the caller of this function - they must clean it up
+*/
+func (p *Client) Hijack() net.Conn {
+	return p.conn
+}
+
 func (p *Client) Connect() error {
 	config := &tls.Config{}
 	// Get the SystemCertPool, continue with an empty pool on error
