@@ -117,7 +117,10 @@ func (p *Client) Connect() error {
 	util.CheckError(err)
 	p.debuglogs.LogDebug("Fullurl ", fullurl.Hostname())
 	conn, err := tls.Dial("tcp", fullurl.Hostname()+":"+fullurl.Port(), config)
-	util.CheckError(err)
+	if err != nil {
+		return err
+	}
+
 	p.conn = conn
 	if p.paramname != "" {
 		data, err := json.Marshal(map[string]string{p.paramname: p.paramvalue})
@@ -129,6 +132,7 @@ func (p *Client) Connect() error {
 		err = req.Write(p.conn)
 		util.CheckError(err)
 		if valid, status := p.checkFirstResp(p.conn); !valid {
+
 			return fmt.Errorf(status)
 		}
 	}

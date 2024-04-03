@@ -273,15 +273,15 @@ func (p *Service) HandleProxy(res http.ResponseWriter, req *http.Request) {
 	util.CheckError(err)
 	proxykey, ok := data[p.proxyparam]
 	if !ok || proxykey == "" {
-		log.Println("No proxy param in the request, or the value is empty, expected to find", p.proxyparam)
-		http.Error(res, "File not found", 404)
+		log.Println("No proxy param in the request, or the value is empty")
+		http.Error(res, "Not found", 404)
 		return
 	}
 
 	proxy, ok := p.proxies.Proxies[proxykey]
 	if !ok {
 		log.Println("Proxy not found", proxykey)
-		http.Error(res, "Not found", 400)
+		http.Error(res, "Not found", 404)
 		return
 	}
 
