@@ -2,5 +2,5 @@
   "ProxyParam": "exo",
   "ProxyRoute": "/7a28fe",
   "Timeout": "30s",
-  "AllowedCACerts": ["./certs/ca-cert.pem"]
+  "AllowedCACerts": []
 }

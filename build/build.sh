@@ -5,7 +5,7 @@ mkdir local/bin
 mkdir bin/
 cp $(which hdnprxy) local/bin/
 cp $(which hdnprxy) bin/
-cp ~/certs/ca-cert.pem local/certs
+###cp ~/certs/ca-cert.pem local/certs - the remote server should use a proper cert, not selve signed
 
 # Create the zip
 zip -r local.zip local
