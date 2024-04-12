@@ -104,6 +104,7 @@ type Tunnel struct {
 
 func (t *Tunnel) Expand() {
 	t.Paramval = os.ExpandEnv(t.Paramval)
+	t.Paramname = os.ExpandEnv(t.Paramname)
 }
 
 func NewService(cfgpath string) *Service {
