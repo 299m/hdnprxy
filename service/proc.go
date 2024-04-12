@@ -64,6 +64,8 @@ type General struct {
 	ProxyBufferSizes int
 	AllowedCACerts   []string
 	Debuglogs        bool
+
+	IsLocal bool //// Set this if this is the local side of a tunnel
 }
 
 func (g *General) Expand() {
@@ -129,11 +131,12 @@ func NewService(cfgpath string) *Service {
 		debuglogs:      configs["general"].(*General).Debuglogs,
 		rulesproc:      rules.NewProcessor(configs["connect-rules"].(*rules.ConnectConfig)),
 	}
-	http.HandleFunc("/", svc.HandleHtml)
-	http.HandleFunc("/home", svc.HandleHome)
-	fmt.Println("Proxy route", svc.proxyroute)
-	http.HandleFunc(svc.proxyroute, svc.HandleProxy)
-
+	if !configs["general"].(*General).IsLocal {
+		http.HandleFunc("/", svc.HandleHtml)
+		http.HandleFunc("/home", svc.HandleHome)
+		fmt.Println("Proxy route", svc.proxyroute)
+		http.HandleFunc(svc.proxyroute, svc.HandleProxy)
+	}
 	svc.DebugLog("Proxies ", svc.proxies.Proxies)
 
 	return svc
