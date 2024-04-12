@@ -66,6 +66,7 @@ type General struct {
 	Debuglogs        bool
 
 	IsLocal bool //// Set this if this is the local side of a tunnel
+
 }
 
 func (g *General) Expand() {
@@ -427,9 +428,26 @@ func HandleConnect(conn net.Conn) {
 	util.CheckError(err)
 
 }
-
 */
-///Run this within your local network - the HTTP Connect is plain text over the network
+
+func handleIncomingNetConn(conn net.Conn, err error, upgradetotls bool, servercfg *configs.TlsConfig, svc *Service, tunnel *Tunnel) {
+	defer util.OnPanicFunc()
+	util.CheckError(err)
+	//HandleConnect(conn)
+	if upgradetotls {
+		/// Start a tls listener
+		/// Load the server certs
+		cer, err := tls.LoadX509KeyPair(servercfg.Cert, servercfg.Key)
+		util.CheckError(err)
+		tlsconfig := &tls.Config{
+			Certificates: []tls.Certificate{cer},
+		}
+		conn = tls.Server(conn, tlsconfig)
+	}
+	svc.HandleTunnel(conn, svc.proxies.Proxies["tunnel"], tunnel) /// this should return after setting up the tunnel
+}
+
+// /Run this within your local network - the HTTP Connect is plain text over the network
 func ProxyListenAndServeTcpTls(servercfg *configs.TlsConfig, svc *Service, tunnel *Tunnel, upgradetotls bool) {
 
 	fmt.Println("Starting tunnel server on port", servercfg.Port, "with tls", upgradetotls)
@@ -437,19 +455,7 @@ func ProxyListenAndServeTcpTls(servercfg *configs.TlsConfig, svc *Service, tunne
 	util.CheckError(err)
 	for {
 		conn, err := listener.Accept()
-		util.CheckError(err)
-		//HandleConnect(conn)
-		if upgradetotls {
-			/// Start a tls listener
-			/// Load the server certs
-			cer, err := tls.LoadX509KeyPair(servercfg.Cert, servercfg.Key)
-			util.CheckError(err)
-			tlsconfig := &tls.Config{
-				Certificates: []tls.Certificate{cer},
-			}
-			conn = tls.Server(conn, tlsconfig)
-		}
-		svc.HandleTunnel(conn, svc.proxies.Proxies["tunnel"], tunnel) /// this should return after setting up the tunnel
+		go handleIncomingNetConn(conn, err, upgradetotls, servercfg, svc, tunnel)
 	}
 
 }
