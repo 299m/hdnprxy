@@ -338,7 +338,8 @@ func (p *Service) HandleHtml(res http.ResponseWriter, req *http.Request) {
 	util.CheckError(err)
 	defer f.Close()
 
-	if strings.Contains(file, p.downloadsdir) {
+	fmt.Println("looking for down load dir", p.downloadsdir, " in ", resppath)
+	if strings.HasPrefix(resppath, p.downloadsdir) {
 		p.DebugLog("Downloading file", file)
 		http.ServeFile(res, req, file)
 		return
