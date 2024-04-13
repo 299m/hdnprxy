@@ -349,7 +349,14 @@ func (p *Service) HandleHtml(res http.ResponseWriter, req *http.Request) {
 	fmt.Println("looking for down load dir", p.downloadsdir, " in ", resppath)
 	if strings.HasPrefix(resppath, p.downloadsdir) {
 		fmt.Println("Downloading file", file)
-		http.ServeFile(res, req, file)
+		res.Header().Set("Content-Disposition", "attachment; filename="+filepath.Base(file))
+		buf := make([]byte, stat.Size())
+		n, err := f.Read(buf)
+		util.CheckError(err)
+		if n != int(stat.Size()) {
+			log.Panicln("File not read completely", n, stat.Size())
+		}
+		res.Write(buf)
 		return
 	}
 	http.ServeContent(res, req, resppath, stat.ModTime(), f)
