@@ -1,0 +1,22 @@
+version: '3.5'
+
+services:
+  hdnprxy:
+    image: 299m/core:hdn-local-tunnel-1.0.0
+    environment:
+      - PROXY_ROUTE=7a28fe
+      - PROXY_ADDRESS=299m.io
+      - PROXY_PORT=443
+      - PARAMNAME=exo
+      - PARAMVALUE=i923aFe
+    ports:
+      - "20443:20443"
+    volumes:
+      - /etc/ssl/certs:/etc/ssl/certs
+    logging:
+      #driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+
+
