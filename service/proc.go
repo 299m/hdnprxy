@@ -313,6 +313,15 @@ func (p *Service) HandleProxy(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func checkFilePath(resppath string) bool {
+	if !filepath.IsLocal(resppath) ||
+		strings.Contains(resppath, "..") || strings.Contains(resppath, "~") || strings.Contains(resppath, "*") {
+		log.Println("Invalid path", resppath)
+		return false
+	}
+	return true
+}
+
 func (p *Service) HandleHtml(res http.ResponseWriter, req *http.Request) {
 	defer util.OnPanic(res)
 	resppath := req.URL.Path[len("/"):]
@@ -321,8 +330,7 @@ func (p *Service) HandleHtml(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !filepath.IsLocal(resppath) ||
-		strings.Contains(resppath, "..") || strings.Contains(resppath, "~") || strings.Contains(resppath, "*") {
+	if !checkFilePath(resppath) {
 		log.Println("Invalid path", resppath)
 		http.Error(res, "Invalid path", 400)
 		return
