@@ -339,6 +339,7 @@ func (p *Service) HandleHtml(res http.ResponseWriter, req *http.Request) {
 	defer f.Close()
 
 	if strings.Contains(file, p.downloadsdir) {
+		p.DebugLog("Downloading file", file)
 		http.ServeFile(res, req, file)
 		return
 	}
