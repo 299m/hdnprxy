@@ -38,17 +38,24 @@ type Service struct {
 	proxycfg       *proxy.Config
 	debuglogs      bool
 
+	downloadsdir string
+
 	rulesproc *rules.Processor
 }
 
 type Content struct {
-	Homefile string
-	Basedir  string
+	Homefile    string
+	Basedir     string
+	Downloaddir string
 }
 
 func (c *Content) Expand() {
 	c.Basedir = os.ExpandEnv(c.Basedir)
 	c.Homefile = os.ExpandEnv(c.Homefile)
+	c.Downloaddir = os.ExpandEnv(c.Downloaddir)
+	if c.Downloaddir == "" {
+		c.Downloaddir = filepath.Join(c.Basedir, "downloads")
+	}
 }
 
 // Key - if key is 123 and we see /123/ then we will proxy the request to the proxyendpoint
@@ -131,6 +138,7 @@ func NewService(cfgpath string) *Service {
 		allowedcacerts: configs["general"].(*General).AllowedCACerts,
 		proxycfg:       configs["engine"].(*proxy.Config),
 		debuglogs:      configs["general"].(*General).Debuglogs,
+		downloadsdir:   configs["content"].(*Content).Downloaddir,
 		rulesproc:      rules.NewProcessor(configs["connect-rules"].(*rules.ConnectConfig)),
 	}
 	if !configs["general"].(*General).IsLocal {
@@ -331,7 +339,6 @@ func (p *Service) HandleHtml(res http.ResponseWriter, req *http.Request) {
 	defer f.Close()
 
 	http.ServeContent(res, req, resppath, stat.ModTime(), f)
-	http.ServeFile(res, req, p.content.Homefile)
 }
 
 // / Create a http handler function for the /home endpoint
