@@ -54,7 +54,7 @@ func (c *Content) Expand() {
 	c.Homefile = os.ExpandEnv(c.Homefile)
 	c.Downloaddir = os.ExpandEnv(c.Downloaddir)
 	if c.Downloaddir == "" {
-		c.Downloaddir = filepath.Join(c.Basedir, "downloads")
+		c.Downloaddir = "downloads"
 	}
 }
 
