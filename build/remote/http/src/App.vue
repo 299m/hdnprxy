@@ -27,11 +27,58 @@
 
 <div class="card">
 <Fieldset legend="Setup a local tunnel to the hdnprxy">
-    <p class="m-2">You can either download the package from here or build it yourself</p>
+    <p class="m-2">You can either download the package from here, build it yourself or use the docker image</p>
     <TabView>
+        <TabPanel header="Docker image">
+            You need to have Docker and Docker compose installed on your machine.
+            <p class="m-0">
+                <Divider />
+                Download the docker-compose file from <a href="/downloads/docker-compose.yaml">here</a> (you can move it to any location on your machine).
+                <Divider />
+                <h4>Setup</h4>
+                The following variables in the docker-compose.yaml file need to be set for your proxy.
+                <pre class="language-markup" tabindex="-1">
+                    <code class="language-markup">
+PROXY_ROUTE - The endpoint to trigger proxying
+PROXY_ADDRESS - The remote proxy IP or DN
+PROXY_PORT - The remote proxy listening port - normally 443
+PARAMNAME - The parameter name to trigger proxying
+PARAMVALUE - The parameter value to trigger proxying
+                    </code>
+                </pre>
+                <Divider />
+                <h4>Running</h4>
+                <p>*** You may need to use sudo for the following commands ***</p>
+                <p>In the same directory as the docker-compose.yaml file type the command</p>
+                <pre class="language-markup" tabindex="-1">
+                    <code class="language-markup">
+docker compose up --detach
+                    </code>
+                </pre>
+                <p>Once it is running, you need to direct network traffic through it:</p>
+                <p>On Ubuntu, go to Settings -> Network -> Network Proxy and select Manual in the Network Proxy message box. Set the HTTPS proxy to 127.0.0.1 and port 20443. (we'll try to get instructions for other systems)</p>
+                <Divider/> 
+                <h4>Stopping</h4>
+                <p>*** You may need to use sudo for the following commands ***</p>
+                <p>In the same directory as the docker-compose.yaml file type the command</p>
+                <pre class="language-markup" tabindex="-1">
+                    <code class="language-markup">
+docker-compose down
+                    </code>
+                </pre>
+                <h4>Updating</h4>
+                <p>*** You may need to use sudo for the following commands ***</p>
+                <p>In the same directory as the docker-compose.yaml file type the command</p>
+                <pre class="language-markup" tabindex="-1">
+                    <code class="language-markup">
+docker-compose pull
+                    </code>
+                </pre>
+            </p>
+        </TabPanel>
         <TabPanel header="Download package">
             <p class="m-0">
-                (currenctly only Linux Ubuntu packages are available).
+                (currently only Linux Ubuntu packages are available).
                 <Divider />
                 Download the zip file from <a href="/downloads/local.zip">here</a>.
                 <Divider />
