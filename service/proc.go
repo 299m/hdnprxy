@@ -20,6 +20,14 @@ import (
 	"time"
 )
 
+const (
+	CONNNET          = "net"
+	CONNRAWTCP       = "raw"
+	CONNWEBSOCK      = "ws"
+	CONNNETTOWEBSOCK = "n-ws"
+	CONNWEBSOCKNET   = "s-ws"
+)
+
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
@@ -61,7 +69,7 @@ func (c *Content) Expand() {
 // Key - if key is 123 and we see /123/ then we will proxy the request to the proxyendpoint
 type ProxyContent struct {
 	Proxyendpoint string
-	Type          string // currently "ws", "net", "n-ws" (websock north), "s-ws" (websock south), may try to support http in the future
+	Type          string // currently "ws", "net", "raw", "n-ws" (websock north), "s-ws" (websock south), may try to support http in the future
 }
 
 type General struct {
@@ -186,7 +194,12 @@ func (p *Service) HandleNetProxy(w http.ResponseWriter, req *http.Request, proxy
 	defer util.OnPanic(w)
 	fmt.Println("Handling net proxy")
 
-	north := relay2.NewClient(proxycfg.Proxyendpoint, p.timeout)
+	usetls := false
+	if proxycfg.Type == CONNNET {
+		usetls = true
+	}
+
+	north := relay2.NewClientv2(proxycfg.Proxyendpoint, p.timeout, usetls)
 	north.AllowCert(p.allowedcacerts)
 	err := north.Connect()
 	if err != nil {
@@ -299,13 +312,13 @@ func (p *Service) HandleProxy(res http.ResponseWriter, req *http.Request) {
 	}
 
 	switch proxy.Type {
-	case "net":
+	case CONNNET, CONNRAWTCP:
 		p.HandleNetProxy(res, req, proxy)
-	case "ws":
+	case CONNWEBSOCK:
 		p.HandleWsProxy(res, req, proxy)
-	case "n-ws":
+	case CONNNETTOWEBSOCK:
 		p.HandleNetWSProxy(res, req, proxy)
-	case "s-ws":
+	case CONNWEBSOCKNET:
 		p.HandleWSNetProxy(res, req, proxy)
 	default:
 		log.Println("Invalid proxy type", proxy.Type)

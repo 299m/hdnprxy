@@ -29,18 +29,30 @@ type Client struct {
 
 	debuglogs DebugLog
 	connid    string
+
+	usetls bool
 }
 
-func NewClient(url string, timeout time.Duration) *Client {
+func newClient(url string, timeout time.Duration, usetls bool) *Client {
 	return &Client{
 		url:         url,
 		timeout:     timeout,
 		southbuffer: make([]byte, 1024),
+		usetls:      usetls,
 	}
+}
+
+// // Old. Best to use the v2 version
+func NewClient(url string, timeout time.Duration) *Client {
+	return newClient(url, timeout, true)
+}
+func NewClientv2(url string, timeout time.Duration, usetls bool) *Client {
+	return newClient(url, timeout, usetls)
 }
 
 // / if we are setting up a tunnel from a local proxy server ot a config proxy, use this
 func NewTunnelClient(url string, timeout time.Duration, paramname string, paramvalue string) *Client {
+
 	fmt.Println("Creating tunnel client with url ", url, " and ", paramname, " ", paramvalue[:4], "******")
 	return &Client{
 		url:         url,
