@@ -105,7 +105,7 @@ func (p *Client) Hijack() net.Conn {
 	return p.conn
 }
 
-func (p *Client) Connect() error {
+func (p *Client) connectTls() (conn net.Conn, err error) {
 	config := &tls.Config{}
 	// Get the SystemCertPool, continue with an empty pool on error
 	rootCAs, _ := x509.SystemCertPool()
@@ -128,7 +128,27 @@ func (p *Client) Connect() error {
 	fullurl, err := url.Parse(p.url)
 	util.CheckError(err)
 	p.debuglogs.LogDebug("Fullurl ", fullurl.Hostname())
-	conn, err := tls.Dial("tcp", fullurl.Hostname()+":"+fullurl.Port(), config)
+	conn, err = tls.Dial("tcp", fullurl.Hostname()+":"+fullurl.Port(), config)
+	if err != nil {
+		return nil, err
+	}
+	return conn, nil
+}
+
+func (p *Client) connectRawTcp() (conn net.Conn, err error) {
+	fullurl, err := url.Parse(p.url)
+	util.CheckError(err)
+	return net.Dial("tcp", fullurl.Hostname()+":"+fullurl.Port())
+}
+
+func (p *Client) Connect() error {
+	var conn net.Conn
+	var err error
+	if p.usetls {
+		conn, err = p.connectTls()
+	} else {
+		conn, err = p.connectRawTcp()
+	}
 	if err != nil {
 		return err
 	}
