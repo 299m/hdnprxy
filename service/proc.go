@@ -70,6 +70,7 @@ func (c *Content) Expand() {
 type ProxyContent struct {
 	Proxyendpoint string
 	Type          string // currently "ws", "net", "raw", "n-ws" (websock north), "s-ws" (websock south), may try to support http in the future
+	Timeout string
 }
 
 type General struct {
@@ -189,6 +190,16 @@ func (p *Service) hijack(w http.ResponseWriter) (c net.Conn, pendingdata []byte,
 	return conn, pendingdata, nil
 }
 
+func (p *Service)getTimeout(proxycfg *ProxyContent) time.Duration {
+	timeout := p.timeout
+	if proxycfg.Timeout != "" {
+		var err error
+		timeout, err = time.ParseDuration(proxycfg.Timeout)
+		util.CheckError(err)
+	}
+	return timeout
+}
+
 // / Raw tcp proxy - north and south
 func (p *Service) HandleNetProxy(w http.ResponseWriter, req *http.Request, proxycfg *ProxyContent) {
 	defer util.OnPanic(w)
@@ -199,7 +210,7 @@ func (p *Service) HandleNetProxy(w http.ResponseWriter, req *http.Request, proxy
 		usetls = true
 	}
 
-	north := relay2.NewClientv2(proxycfg.Proxyendpoint, p.timeout, usetls)
+	north := relay2.NewClientv2(proxycfg.Proxyendpoint, p.getTimeout(proxycfg), usetls)
 	north.AllowCert(p.allowedcacerts)
 	err := north.Connect()
 	if err != nil {
@@ -230,7 +241,7 @@ func (p *Service) HandleNetProxy(w http.ResponseWriter, req *http.Request, proxy
 func (p *Service) HandleWsProxy(w http.ResponseWriter, req *http.Request, proxycfg *ProxyContent) {
 	defer util.OnPanic(w)
 	fmt.Println("Handling ws proxy")
-	north := relay2.NewWebSockRelay(proxycfg.Proxyendpoint, p.timeout)
+	north := relay2.NewWebSockRelay(proxycfg.Proxyendpoint, p.getTimeout(proxycfg))
 	err := north.Connect()
 	if err != nil {
 		log.Println("Unable to connect ", err)
@@ -253,7 +264,7 @@ func (p *Service) HandleWsProxy(w http.ResponseWriter, req *http.Request, proxyc
 func (p *Service) HandleNetWSProxy(w http.ResponseWriter, req *http.Request, proxycfg *ProxyContent) {
 	defer util.OnPanic(w)
 	fmt.Println("Handling net ws proxy")
-	north := relay2.NewWebSockRelay(proxycfg.Proxyendpoint, p.timeout)
+	north := relay2.NewWebSockRelay(proxycfg.Proxyendpoint, p.getTimeout(proxycfg))
 	err := north.Connect()
 	if err != nil {
 		log.Println("Unable to connect ", err)
@@ -265,7 +276,7 @@ func (p *Service) HandleNetWSProxy(w http.ResponseWriter, req *http.Request, pro
 	conn, pendingdata, err := p.hijack(w)
 	util.CheckError(err)
 	// Only accept secure connections - make sure this is a tls connection
-	south := relay2.NewClientFromConn(conn.(*tls.Conn), p.timeout)
+	south := relay2.NewClientFromConn(conn.(*tls.Conn), p.getTimeout(proxycfg))
 	north.SendMsg(pendingdata)
 	processor := proxy.NewEngine(north, south, p.proxycfg, p.rulesproc)
 	go processor.ProcessNorthbound()
@@ -278,11 +289,11 @@ func (p *Service) HandleWSNetProxy(w http.ResponseWriter, req *http.Request, pro
 	fmt.Println("Handling ws net proxy")
 	conn, err := upgrader.Upgrade(w, req, nil)
 	util.CheckError(err)
-	north := relay2.NewClient(proxycfg.Proxyendpoint, p.timeout)
+	north := relay2.NewClient(proxycfg.Proxyendpoint, p.getTimeout(proxycfg))
 	north.AllowCert(p.allowedcacerts)
 	err = north.Connect()
 	util.CheckError(err)
-	south := relay2.NewWebSockRelayFromConn(conn, p.timeout)
+	south := relay2.NewWebSockRelayFromConn(conn, p.getTimeout(proxycfg))
 	processor := proxy.NewEngine(north, south, p.proxycfg, p.rulesproc)
 	go processor.ProcessNorthbound()
 	go processor.ProcessSouthbound()
