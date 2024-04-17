@@ -70,7 +70,7 @@ func (c *Content) Expand() {
 type ProxyContent struct {
 	Proxyendpoint string
 	Type          string // currently "ws", "net", "raw", "n-ws" (websock north), "s-ws" (websock south), may try to support http in the future
-	Timeout string
+	Timeout       string
 }
 
 type General struct {
@@ -109,6 +109,7 @@ func (p *Proxies) Expand() {
 	for key, proxy := range p.Proxies {
 		truekey := os.ExpandEnv(key)
 		proxy.Proxyendpoint = os.ExpandEnv(proxy.Proxyendpoint)
+		proxy.Timeout = os.ExpandEnv(proxy.Timeout)
 		proxies[truekey] = proxy
 	}
 	p.Proxies = proxies
@@ -190,7 +191,7 @@ func (p *Service) hijack(w http.ResponseWriter) (c net.Conn, pendingdata []byte,
 	return conn, pendingdata, nil
 }
 
-func (p *Service)getTimeout(proxycfg *ProxyContent) time.Duration {
+func (p *Service) getTimeout(proxycfg *ProxyContent) time.Duration {
 	timeout := p.timeout
 	if proxycfg.Timeout != "" {
 		var err error
