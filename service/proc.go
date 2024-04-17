@@ -88,6 +88,7 @@ type General struct {
 func (g *General) Expand() {
 	g.ProxyParam = os.ExpandEnv(g.ProxyParam)
 	g.ProxyRoute = os.ExpandEnv(g.ProxyRoute)
+	g.Timeout = os.ExpandEnv(g.Timeout)
 
 	//// Do any other expansion above this
 	if len(g.AllowedCACerts) == 1 && strings.Contains(g.AllowedCACerts[0], ",") {
