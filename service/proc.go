@@ -227,7 +227,7 @@ func (p *Service) HandleNetProxy(w http.ResponseWriter, req *http.Request, proxy
 	sendResponse(conn, "", 200) /// after this, go to raw tcp/tls
 
 	//// Only accept secure connections - make sure this is a tls connection
-	south := relay2.NewClientFromConn(conn.(*tls.Conn), p.timeout)
+	south := relay2.NewClientFromConn(conn.(*tls.Conn), p.getTimeout(proxycfg))
 	if p.proxycfg.Lognorth { /// slightly messy - but lets see whats beign sent
 		north.EnableDebugLogs(true, "svc-net-north")
 	}
