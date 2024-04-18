@@ -60,6 +60,7 @@ func NewTunnelClient(url string, timeout time.Duration, paramname string, paramv
 		southbuffer: make([]byte, 1024),
 		paramname:   paramname,
 		paramvalue:  paramvalue,
+		usetls:      true,
 	}
 }
 
@@ -69,6 +70,7 @@ func NewClientFromConn(conn net.Conn, timeout time.Duration) *Client {
 		conn:        conn,
 		timeout:     timeout,
 		southbuffer: make([]byte, 1024),
+		usetls:      true, ////this shouldn't matter, as the connection is already established
 	}
 }
 

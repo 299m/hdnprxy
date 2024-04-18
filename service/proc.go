@@ -400,7 +400,7 @@ func (p *Service) HandleHome(res http.ResponseWriter, req *http.Request) {
 	http.ServeContent(res, req, "home", stats.ModTime(), f)
 }
 
-func (p *Service) HandleTunnel(conn net.Conn, proxycontent *ProxyContent, tunnel *Tunnel) {
+func (p *Service) HandleLocalTunnel(conn net.Conn, proxycontent *ProxyContent, tunnel *Tunnel) {
 	defer util.OnPanicFunc()
 	// / Create a new client from the connection
 	fmt.Println("Handling tunnel")
@@ -434,7 +434,7 @@ func ProxyListenAndServe(servercfg *configs.TlsConfig, svc *Service, tunnel *Tun
 	for {
 		conn, err := listener.Accept()
 		util.CheckError(err)
-		svc.HandleTunnel(conn, svc.proxies.Proxies["tunnel"], tunnel) /// this should return after setting up the tunnel
+		svc.HandleLocalTunnel(conn, svc.proxies.Proxies["tunnel"], tunnel) /// this should return after setting up the tunnel
 	}
 
 }
@@ -498,7 +498,7 @@ func handleIncomingNetConn(conn net.Conn, err error, upgradetotls bool, servercf
 		}
 		conn = tls.Server(conn, tlsconfig)
 	}
-	svc.HandleTunnel(conn, svc.proxies.Proxies["tunnel"], tunnel) /// this should return after setting up the tunnel
+	svc.HandleLocalTunnel(conn, svc.proxies.Proxies["tunnel"], tunnel) /// this should return after setting up the tunnel
 }
 
 // /Run this within your local network - the HTTP Connect is plain text over the network
