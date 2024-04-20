@@ -11,6 +11,7 @@ type TlsConfig struct {
 	IsProxy    bool
 	IsTlsProxy bool /// it seems we're getting data prior to the tls handshake
 	IsTcpProxy bool
+	IsUdpProxy bool
 }
 
 func (t *TlsConfig) Expand() {

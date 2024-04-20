@@ -60,7 +60,8 @@ func (p *Engine) ProcessNorthbound() {
 		rule := p.rulesproc.Allow(message)
 		if rule == rules.ALLOW {
 			p.logdebug.LogData(string(message), "n")
-			p.north.SendMsg(message)
+			err := p.north.SendMsg(message)
+			util.CheckError(err)
 		} else {
 			p.logdebug.LogDebug(fmt.Sprint("Rule blocked message. ", string(message)), "n")
 			if rule == rules.DROPFLAT {

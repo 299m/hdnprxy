@@ -181,8 +181,6 @@ func (p *Client) SendMsg(data []byte) error {
 	p.debuglogs.LogData(string(data), "send: ")
 	p.conn.SetWriteDeadline(time.Now().Add(p.timeout))
 	_, err := p.conn.Write(data)
-	//// FOR DEBUGGING TLS ISSUE
-	util.CheckError(err)
 	return err
 }
 
@@ -190,8 +188,6 @@ func (p *Client) RecvMsg() (data []byte, err error) {
 	p.conn.SetReadDeadline(time.Now().Add(p.timeout))
 	data = p.southbuffer
 	n, err := p.conn.Read(data)
-	//// FOR DEBUGGING TLS ISSUE
-	util.CheckError(err)
 	p.debuglogs.LogData(string(data[:n]), "recv: ")
 	return data[:n], err
 }

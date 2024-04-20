@@ -8,7 +8,6 @@ import (
 	"github.com/gorilla/websocket"
 	"hdnprxy/configs"
 	"hdnprxy/proxy"
-	relay2 "hdnprxy/relay"
 	"hdnprxy/rules"
 	"log"
 	"net"
@@ -119,7 +118,7 @@ func (p *Service) HandleProxy(res http.ResponseWriter, req *http.Request) {
 
 	switch proxy.Type {
 	case CONNNET, CONNRAWTCP:
-		p.HandleNetProxy(res, req, proxy)
+		p.HandleRemoteTunnel(res, req, proxy)
 	case CONNWEBSOCK:
 		p.HandleWsProxy(res, req, proxy)
 	case CONNNETTOWEBSOCK:
@@ -191,24 +190,6 @@ func (p *Service) HandleHome(res http.ResponseWriter, req *http.Request) {
 	defer f.Close()
 
 	http.ServeContent(res, req, "home", stats.ModTime(), f)
-}
-
-func (p *Service) HandleLocalTunnel(conn net.Conn, proxycontent *ProxyContent, tunnel *Tunnel) {
-	defer util.OnPanicFunc()
-	// / Create a new client from the connection
-	fmt.Println("Handling tunnel")
-	/// the first response should not have any body - it's simply a status response
-
-	south := relay2.NewClientFromConn(conn, p.timeout)
-
-	north := relay2.NewTunnelClient(proxycontent.Proxyendpoint, p.timeout, tunnel.Paramname, tunnel.Paramval)
-	north.AllowCert(p.allowedcacerts)
-	err := north.Connect()
-	util.CheckError(err)
-	processor := proxy.NewEngine(north, south, p.proxycfg, p.rulesproc)
-	go processor.ProcessNorthbound()
-	go processor.ProcessSouthbound()
-	fmt.Println("Tunnel setup complete")
 }
 
 func ProxyListenAndServe(servercfg *configs.TlsConfig, svc *Service, tunnel *Tunnel) {
@@ -315,6 +296,21 @@ func ListenAndServeHttps(servercfg *configs.TlsConfig) {
 	util.CheckError(err)
 }
 
+// // Local side of the tunnel
+func ListenAndServeUDP(servercfg *configs.TlsConfig, svc *Service, tunnel *Tunnel) {
+	fmt.Println("Listening for UDP packets")
+	for { /// Not sure if this will break on a ctrl-C - we'll find out
+		udpaddr, err := net.ResolveUDPAddr("udp", ":"+servercfg.Port)
+		util.CheckError(err)
+		conn, err := net.ListenUDP("udp", udpaddr)
+		util.CheckError(err)
+		//// For UDP create a single TCP connection to the remote end of the tunnel
+		/// this should block
+		svc.HandleLocalUdp(conn, svc.proxies.Proxies["tunnel"], tunnel)
+		/// Need to handle reconnection - if ctrl-C hasn't been pressed
+	}
+}
+
 func ListenAndServeTls(cfgpath string) {
 	svc := NewService(cfgpath)
 	servercfg := &configs.TlsConfig{}
@@ -333,6 +329,8 @@ func ListenAndServeTls(cfgpath string) {
 		ProxyListenAndServeTcpTls(servercfg, svc, tunnel, true)
 	} else if tlsconfig["tls"].(*configs.TlsConfig).IsTcpProxy {
 		ProxyListenAndServeTcpTls(servercfg, svc, tunnel, false)
+	} else if tlsconfig["tls"].(*configs.TlsConfig).IsUdpProxy {
+		ListenAndServeUDP(servercfg, svc, tunnel)
 	} else {
 		log.Panicln("Invalid tls config, one of IsProxy or IsHttps must be set")
 	}

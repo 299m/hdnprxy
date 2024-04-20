@@ -13,6 +13,24 @@ import (
 	"time"
 )
 
+func (p *Service) HandleLocalTunnel(conn net.Conn, proxycontent *ProxyContent, tunnel *Tunnel) {
+	defer util.OnPanicFunc()
+	// / Create a new client from the connection
+	fmt.Println("Handling tunnel")
+	/// the first response should not have any body - it's simply a status response
+
+	south := relay2.NewClientFromConn(conn, p.timeout)
+
+	north := relay2.NewTunnelClient(proxycontent.Proxyendpoint, p.timeout, tunnel.Paramname, tunnel.Paramval)
+	north.AllowCert(p.allowedcacerts)
+	err := north.Connect()
+	util.CheckError(err)
+	processor := proxy.NewEngine(north, south, p.proxycfg, p.rulesproc)
+	go processor.ProcessNorthbound()
+	go processor.ProcessSouthbound()
+	fmt.Println("Tunnel setup complete")
+}
+
 func (p *Service) hijack(w http.ResponseWriter) (c net.Conn, pendingdata []byte, err error) {
 	p.DebugLog("Hijacking the http connection")
 	h, ok := w.(http.Hijacker)
@@ -46,7 +64,7 @@ func (p *Service) getTimeout(proxycfg *ProxyContent) time.Duration {
 }
 
 // / Raw tcp proxy - north and south
-func (p *Service) HandleNetProxy(w http.ResponseWriter, req *http.Request, proxycfg *ProxyContent) {
+func (p *Service) HandleRemoteTunnel(w http.ResponseWriter, req *http.Request, proxycfg *ProxyContent) {
 	defer util.OnPanic(w)
 	fmt.Println("Handling net proxy")
 
