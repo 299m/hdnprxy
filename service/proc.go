@@ -24,6 +24,7 @@ const (
 	CONNWEBSOCK      = "ws"
 	CONNNETTOWEBSOCK = "n-ws"
 	CONNWEBSOCKNET   = "s-ws"
+	CONNUDP          = "udp"
 )
 
 var upgrader = websocket.Upgrader{
@@ -58,6 +59,7 @@ func NewService(cfgpath string) *Service {
 		"engine":        &proxy.Config{},
 		"connect-rules": &rules.ConnectConfig{},
 	}
+	fmt.Println("Starting server with cfg path ", cfgpath)
 	util.ReadConfig(cfgpath, configs)
 	timeout, err := time.ParseDuration(configs["general"].(*General).Timeout)
 	util.CheckError(err)
@@ -125,6 +127,8 @@ func (p *Service) HandleProxy(res http.ResponseWriter, req *http.Request) {
 		p.HandleNetWSProxy(res, req, proxy)
 	case CONNWEBSOCKNET:
 		p.HandleWSNetProxy(res, req, proxy)
+	case CONNUDP:
+		p.HandleRemoteUdp(res, req, proxy)
 	default:
 		log.Println("Invalid proxy type", proxy.Type)
 		http.Error(res, "Server error", 500)
@@ -297,16 +301,17 @@ func ListenAndServeHttps(servercfg *configs.TlsConfig) {
 }
 
 // // Local side of the tunnel
-func ListenAndServeUDP(servercfg *configs.TlsConfig, svc *Service, tunnel *Tunnel) {
+func ListenAndServeUDP(servercfg *configs.TlsConfig, s *Service, tunnel *Tunnel) {
 	fmt.Println("Listening for UDP packets")
+	udpaddr, err := net.ResolveUDPAddr("udp", ":"+servercfg.Port)
+	util.CheckError(err)
+	conn, err := net.ListenUDP("udp", udpaddr)
+	util.CheckError(err)
+
 	for { /// Not sure if this will break on a ctrl-C - we'll find out
-		udpaddr, err := net.ResolveUDPAddr("udp", ":"+servercfg.Port)
-		util.CheckError(err)
-		conn, err := net.ListenUDP("udp", udpaddr)
-		util.CheckError(err)
 		//// For UDP create a single TCP connection to the remote end of the tunnel
 		/// this should block
-		svc.HandleLocalUdp(conn, svc.proxies.Proxies["tunnel"], tunnel)
+		s.HandleLocalUdp(conn, s.proxies.Proxies["tunnel"], tunnel)
 		/// Need to handle reconnection - if ctrl-C hasn't been pressed
 	}
 }

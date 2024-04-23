@@ -4,6 +4,7 @@ import (
 	"github.com/299m/util/util"
 	"github.com/gorilla/websocket"
 	"log"
+	"net"
 	"time"
 )
 
@@ -55,8 +56,8 @@ func (p *WebSockRelay) SendMsg(data []byte) error {
 	return p.conn.WriteMessage(websocket.BinaryMessage, data)
 }
 
-func (p *WebSockRelay) RecvMsg() (data []byte, err error) {
+func (p *WebSockRelay) RecvMsg() (data []byte, addr net.Addr, err error) {
 	/// Receive data from the web socket
 	_, data, err = p.conn.ReadMessage()
-	return data, err
+	return data, nil, err
 }

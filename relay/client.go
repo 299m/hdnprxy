@@ -53,7 +53,7 @@ func NewClientv2(url string, timeout time.Duration, usetls bool) *Client {
 // / if we are setting up a tunnel from a local proxy server ot a config proxy, use this
 func NewTunnelClient(url string, timeout time.Duration, paramname string, paramvalue string) *Client {
 
-	fmt.Println("Creating tunnel client with url ", url, " and ", paramname, " ", paramvalue[:4], "******")
+	fmt.Println("Creating tunnel client with url ", url, " and ", paramname, " ", paramvalue[:3], "******")
 	return &Client{
 		url:         url,
 		timeout:     timeout,
@@ -184,10 +184,10 @@ func (p *Client) SendMsg(data []byte) error {
 	return err
 }
 
-func (p *Client) RecvMsg() (data []byte, err error) {
+func (p *Client) RecvMsg() (data []byte, addr net.Addr, err error) {
 	p.conn.SetReadDeadline(time.Now().Add(p.timeout))
 	data = p.southbuffer
 	n, err := p.conn.Read(data)
 	p.debuglogs.LogData(string(data[:n]), "recv: ")
-	return data[:n], err
+	return data[:n], nil, err
 }

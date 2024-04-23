@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/299m/util/util"
 	"hdnprxy/relay"
+	"hdnprxy/routing"
 	"hdnprxy/rules"
 	"sync/atomic"
 )
@@ -28,6 +29,10 @@ type Engine struct {
 
 	cfg      *Config
 	engineid int64
+
+	router  routing.UdpRoutes
+	islocal bool
+	isudp   bool
 }
 
 func NewEngine(north relay.Relay, south relay.Relay, cfg *Config, rulesproc *rules.Processor) *Engine {
@@ -37,6 +42,22 @@ func NewEngine(north relay.Relay, south relay.Relay, cfg *Config, rulesproc *rul
 		cfg:       cfg,
 		engineid:  atomic.AddInt64(&engineid, 1),
 		rulesproc: rulesproc,
+	}
+	if cfg.Logdebug {
+		e.logdebug.EnableDebugLogs(true, fmt.Sprint("e-", e.engineid))
+	}
+	return e
+}
+
+func NewUdpEngine(north relay.Relay, south relay.Relay, cfg *Config, rulesproc *rules.Processor, islocal bool) *Engine {
+	e := &Engine{
+		north:     north,
+		south:     south,
+		cfg:       cfg,
+		engineid:  atomic.AddInt64(&engineid, 1),
+		rulesproc: rulesproc,
+		islocal:   islocal,
+		isudp:     true,
 	}
 	if cfg.Logdebug {
 		e.logdebug.EnableDebugLogs(true, fmt.Sprint("e-", e.engineid))
@@ -55,11 +76,14 @@ func (p *Engine) ProcessNorthbound() {
 
 	for {
 		p.logdebug.LogDebug("Waiting for message from south", "n")
-		message, err := p.south.RecvMsg()
+		message, addr, err := p.south.RecvMsg()
 		util.CheckError(err)
 		rule := p.rulesproc.Allow(message)
 		if rule == rules.ALLOW {
 			p.logdebug.LogData(string(message), "n")
+			if p.islocal && p.isudp {
+				/// we need to put a header in to say where the message came from
+			}
 			err := p.north.SendMsg(message)
 			util.CheckError(err)
 		} else {

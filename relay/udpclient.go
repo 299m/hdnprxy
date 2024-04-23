@@ -7,6 +7,10 @@ import (
 	"time"
 )
 
+const (
+	HEADERSIZE = 8 /// Int64
+)
+
 type UdpRelay struct {
 	udpconn   *net.UDPConn
 	buff      []byte
@@ -48,14 +52,14 @@ func (u *UdpRelay) Connect() error {
 	return nil
 }
 
-func (u *UdpRelay) RecvMsg() ([]byte, error) {
+func (u *UdpRelay) RecvMsg() ([]byte, net.Addr, error) {
 	n, addr, err := u.udpconn.ReadFromUDP(u.buff)
 	if err != nil {
 		u.debuglogs.LogDebug("Error reading from UDP"+err.Error(), u.connid)
-		return nil, err
+		return nil, nil, err
 	}
 	u.debuglogs.LogDebug("Received UDP packet from "+addr.String(), u.connid)
-	return u.buff[:n], nil
+	return u.buff[:n], addr, nil
 }
 
 func (u *UdpRelay) SendMsg(data []byte) error {

@@ -23,7 +23,7 @@ func (p *Service) HandleLocalUdp(udpconn *net.UDPConn, proxycontent *ProxyConten
 	err := north.Connect()
 	util.CheckError(err)
 	south := relay2.NewUdpRelay(udpconn, p.buffersize)
-	processor := proxy.NewEngine(north, south, p.proxycfg, p.rulesproc)
+	processor := proxy.NewUdpEngine(north, south, p.proxycfg, p.rulesproc, true)
 	fmt.Println("UDP Tunnel setup ... start the engine")
 
 	go processor.ProcessNorthbound()
@@ -54,7 +54,7 @@ func (p *Service) HandleRemoteUdp(w http.ResponseWriter, req *http.Request, prox
 	err = north.SendMsg(pendingdata)
 	util.CheckError(err)
 
-	processor := proxy.NewEngine(north, south, p.proxycfg, p.rulesproc)
+	processor := proxy.NewUdpEngine(north, south, p.proxycfg, p.rulesproc, false)
 	go processor.ProcessNorthbound()
 	//// Don't start another goroutine for the southbound - the tunnel should remain open
 	processor.ProcessSouthbound()
