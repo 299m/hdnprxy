@@ -3,13 +3,17 @@ package proxy
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"github.com/299m/util/util"
 	"net"
 )
 
 const (
 	ISUDP  = 1
-	ISIPV6 = 1 << 1
+	ISIPV4 = 1 << 1
+	ISIPV6 = 1 << 2
+
+	IPADDRSIZE = 16
 )
 
 type ErrNotUdp struct{}
@@ -22,12 +26,14 @@ func (e ErrNotUdp) Error() string {
 type TunnelMessage struct {
 	udpheader []byte
 	buf       *bytes.Buffer
+	nilip     []byte
 }
 
 func NewTunnelMessage(bufsize int) *TunnelMessage {
 	return &TunnelMessage{
-		udpheader: make([]byte, 16+4+2), /// 8 bytes for the IP and 4 bytes for the port and 2 bytes for additional info
+		udpheader: make([]byte, getHeaderSize()), /// 8 bytes for the IP and 4 bytes for the port and 2 bytes for additional info
 		buf:       bytes.NewBuffer(make([]byte, bufsize)),
+		nilip:     make([]byte, IPADDRSIZE),
 	}
 }
 
@@ -35,14 +41,17 @@ func (t *TunnelMessage) putUdpHeader(addr *net.UDPAddr, datasize int) {
 	t.buf.Reset()
 	ip4 := addr.IP.To4()
 	info := int16(ISUDP)
-	addrsize := 16 //// fixed size header
-	if ip4 == nil {
+	addrsize := IPADDRSIZE //// fixed size header
+	if addr.IP != nil && ip4 == nil {
 		info = int16(ISUDP | ISIPV6)
+	} else if len(addr.IP) == net.IPv4len {
+		info = int16(ISUDP | ISIPV4)
 	}
 
 	headersize := binary.Size(info)
 	binary.LittleEndian.PutUint16(t.udpheader, uint16(info))
-	copy(t.udpheader[headersize:], addr.IP[:addrsize])
+	copy(t.udpheader[headersize:], t.nilip)
+	copy(t.udpheader[headersize:], addr.IP)
 	headersize += addrsize
 	port := uint32(addr.Port)
 	binary.LittleEndian.PutUint32(t.udpheader[headersize:], port)
@@ -53,27 +62,30 @@ func (t *TunnelMessage) putUdpHeader(addr *net.UDPAddr, datasize int) {
 
 func getHeaderSize() int {
 	headersize := binary.Size(int16(0))
-	headersize += 16 //// fixed size header
+	headersize += IPADDRSIZE //// fixed size header
 	headersize += binary.Size(uint32(0))
 	headersize += binary.Size(uint32(0))
 	return headersize
 }
 
-func (t *TunnelMessage) retrieveUdpHeader(data []byte) (addr *net.UDPAddr, msgdata []byte, needmore bool, err error) {
+func (t *TunnelMessage) retrieveUdpHeader(data []byte) (addr *net.UDPAddr, msgdata []byte,
+	needmore bool, nextmsgoffset int, err error) {
 	if len(data) < getHeaderSize() {
 		///// Not an error - just wait for more data and try again
-		return nil, nil, true, nil
+		return nil, nil, true, 0, nil
 	}
 	headersize := 0
 	info := binary.LittleEndian.Uint16(data)
 	headersize += binary.Size(info)
 	if info&ISUDP == 0 {
-		return nil, nil, false, ErrNotUdp{}
+		return nil, nil, false, 0, ErrNotUdp{}
 	}
-	addrsize := 16
+	addrsize := IPADDRSIZE
 	ipaddr := make([]byte, addrsize)
 	copy(ipaddr, data[headersize:headersize+addrsize])
 	headersize += addrsize
+
+	fmt.Println("IP address", ipaddr)
 
 	port := binary.LittleEndian.Uint32(data[headersize:])
 	headersize += binary.Size(port)
@@ -81,11 +93,17 @@ func (t *TunnelMessage) retrieveUdpHeader(data []byte) (addr *net.UDPAddr, msgda
 	headersize += binary.Size(size)
 
 	addr = &net.UDPAddr{
-		IP:   ipaddr,
 		Port: int(port),
 	}
-	msgdata = data[headersize:]
-	needmore = len(msgdata) < int(size)
+	if info&uint16(ISIPV4) != 0 {
+		addr.IP = ipaddr[:net.IPv4len]
+	} else if info&uint16(ISIPV6) != 0 {
+		addr.IP = ipaddr
+	}
+	needmore = len(data) < int(size)
+	fmt.Println("Data size", size, "msgdata size", len(data), "needmore", needmore)
+	msgdata = data[headersize : headersize+int(size)]
+	nextmsgoffset = headersize + int(size)
 	return
 }
 
@@ -96,8 +114,8 @@ func (t *TunnelMessage) Write(data []byte, from *net.UDPAddr) (fullmsg []byte) {
 }
 
 // // If need more is set, read in more data and pass this current data + the new data in again
-func (t *TunnelMessage) Read(data []byte) (msgdata []byte, needmore bool, addr *net.UDPAddr, err error) {
-	addr, msgdata, needmore, err = t.retrieveUdpHeader(data)
+func (t *TunnelMessage) Read(data []byte) (msgdata []byte, needmore bool, addr *net.UDPAddr, nextmsgoffset int, err error) {
+	addr, msgdata, needmore, nextmsgoffset, err = t.retrieveUdpHeader(data)
 	util.CheckError(err)
-	return msgdata, needmore, addr, err
+	return msgdata, needmore, addr, nextmsgoffset, err
 }

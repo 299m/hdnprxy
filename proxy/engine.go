@@ -83,6 +83,7 @@ func (p *Engine) ProcessNorthbound() {
 			p.logdebug.LogData(string(message), "n")
 			if p.islocal && p.isudp {
 				/// we need to put a header in to say where the message came from
+				fmt.Println("FORGOT TO PROCESS UDP ", addr)
 			}
 			err := p.north.SendMsg(message)
 			util.CheckError(err)
@@ -111,7 +112,7 @@ func (p *Engine) ProcessSouthbound() {
 
 	for {
 		p.logdebug.LogDebug("Waiting for message from north", "s")
-		buffer, err := p.north.RecvMsg()
+		buffer, _, err := p.north.RecvMsg()
 		util.CheckError(err)
 		p.logdebug.LogData(string(buffer), "s")
 		err = p.south.SendMsg(buffer)
