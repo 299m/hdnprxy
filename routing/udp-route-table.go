@@ -45,15 +45,23 @@ func (u *UdpRoutes) RemoveRouteById(id int64) {
 	delete(u.routes, id)
 }
 
-func (u *UdpRoutes) FindOrAddRouteByAddr(addr *net.UDPAddr) int64 {
-	u.rwlock.RLock()
-	defer u.rwlock.RUnlock()
+func (u *UdpRoutes) FindRouteByAddr(addr *net.UDPAddr) (int64, bool) {
+	u.rwlock.Lock()
+	defer u.rwlock.Unlock()
 
 	if id, ok := u.ids[addr]; ok {
+		return id, true
+	}
+	return 0, false
+}
+
+func (u *UdpRoutes) FindOrAddRouteByAddr(addr *net.UDPAddr) int64 {
+	id, found := u.FindRouteByAddr(addr)
+	if found {
 		return id
 	}
 	////Else add a new route
-	id := atomic.AddInt64(&u.nextid, 1)
+	id = atomic.AddInt64(&u.nextid, 1)
 	u.AddRoute(addr, id)
 	return id
 }
