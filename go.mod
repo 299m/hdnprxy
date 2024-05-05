@@ -3,7 +3,7 @@ module hdnprxy
 go 1.21
 
 require (
-	github.com/299m/util v0.0.0-20240319151555-344f94ec44f8
+	github.com/299m/util v0.0.0-20240424061726-a43a59af9f11
 	github.com/gorilla/websocket v1.5.1
 	github.com/stretchr/testify v1.9.0
 )

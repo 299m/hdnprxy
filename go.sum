@@ -1,5 +1,7 @@
 github.com/299m/util v0.0.0-20240319151555-344f94ec44f8 h1:6pG/KATdhcNtWmmd+PgDYB8UEWY1E5Z8LBxo//wZB5g=
 github.com/299m/util v0.0.0-20240319151555-344f94ec44f8/go.mod h1:c2ygI4rNB2QiYvAZDcQuYRJ/DkE0qY7U8tkkjL7NLek=
+github.com/299m/util v0.0.0-20240424061726-a43a59af9f11 h1:njjNpbSpyfL7G1UJsJ2v4LXqjo5hRZPRHHLvyrfOWDc=
+github.com/299m/util v0.0.0-20240424061726-a43a59af9f11/go.mod h1:c2ygI4rNB2QiYvAZDcQuYRJ/DkE0qY7U8tkkjL7NLek=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/gorilla/websocket v1.5.1 h1:gmztn0JnHVt9JZquRuzLw3g4wouNVzKL15iLr/zn/QY=

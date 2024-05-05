@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"github.com/299m/util/logging"
 	"github.com/299m/util/util"
 	"log"
 	"net"
@@ -27,7 +28,7 @@ type Client struct {
 	paramname  string
 	paramvalue string
 
-	debuglogs DebugLog
+	debuglogs logging.DebugLog
 	connid    string
 
 	usetls bool
@@ -46,6 +47,7 @@ func newClient(url string, timeout time.Duration, usetls bool) *Client {
 func NewClient(url string, timeout time.Duration) *Client {
 	return newClient(url, timeout, true)
 }
+
 func NewClientv2(url string, timeout time.Duration, usetls bool) *Client {
 	return newClient(url, timeout, usetls)
 }

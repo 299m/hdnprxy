@@ -14,7 +14,7 @@ const (
 type UdpRelay struct {
 	udpconn   *net.UDPConn
 	buff      []byte
-	debuglogs DebugLog
+	debuglogs logging.DebugLog
 	connid    string
 
 	url     string
